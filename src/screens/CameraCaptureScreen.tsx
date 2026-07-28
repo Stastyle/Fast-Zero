@@ -100,9 +100,13 @@ export function CameraCaptureScreen() {
   // camera app; scale then comes from tapping the page corners.
   const onFallbackFile = async (file: File | undefined) => {
     if (!file) return
-    const { url, width, height } = await preparePhoto(file)
-    setPhoto(url, width, height)
-    navigate('/corners')
+    try {
+      const { url, width, height } = await preparePhoto(file)
+      setPhoto(url, width, height)
+      navigate('/corners')
+    } catch {
+      setState('error')
+    }
   }
 
   return (
@@ -116,16 +120,14 @@ export function CameraCaptureScreen() {
             <div className="camera-hint">{he.camera.align}</div>
             {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
           </div>
-          <div className="bottom-bar">
+          <div className="shutter-bar">
             <button
               type="button"
-              className="big-button"
-              style={{ flex: 1 }}
+              className="shutter-button"
+              aria-label={he.camera.capture}
               disabled={state !== 'live'}
               onClick={capture}
-            >
-              📷 {he.camera.capture}
-            </button>
+            />
           </div>
         </>
       ) : (

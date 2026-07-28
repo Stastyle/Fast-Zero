@@ -5,10 +5,11 @@ export function listSessions(): Session[] {
   return [...loadStore().sessions].reverse()
 }
 
-export function appendSession(session: Session): void {
+/** Returns false when the session could not be persisted (storage full/unavailable). */
+export function appendSession(session: Session): boolean {
   const store = loadStore()
   store.sessions = [...store.sessions, session]
-  saveStore(store)
+  return saveStore(store)
 }
 
 export function deleteSession(id: string): void {

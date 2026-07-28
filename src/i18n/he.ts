@@ -109,11 +109,22 @@ export const he = {
     zeroed: 'מאופס',
     allZeroed: 'הנשק מאופס!',
     clicks: 'קליקים',
-    offset: (r: string, u: string) => `סטייה: ${r} ס״מ ימינה · ${u} ס״מ למעלה`,
+    /** '1' reads as 'קליק אחד', otherwise 'N קליקים'. */
+    clicksCount: (n: number) => (n === 1 ? 'קליק אחד' : `${n} קליקים`),
+    /** Sign-aware: negative right reads שמאלה, negative up reads למטה. */
+    offset: (rightCm: number, upCm: number) => {
+      const r = `${Math.abs(rightCm).toFixed(1)} ס״מ ${rightCm < 0 ? 'שמאלה' : 'ימינה'}`
+      const u = `${Math.abs(upCm).toFixed(1)} ס״מ ${upCm < 0 ? 'למטה' : 'למעלה'}`
+      return `סטייה: ${r} · ${u}`
+    },
     spread: (cm: string) => `פיזור צרור: ${cm} ס״מ`,
     save: 'שמור להיסטוריה',
     again: 'איפוס נוסף',
     saved: 'נשמר!',
+    saving: 'מכין תמונה…',
+    saveFailed: 'השמירה נכשלה — אין מקום באחסון המכשיר',
+    showPhoto: 'הצג את הצילום עם הסימונים',
+    diagramTitle: 'איפה מכוונים בכוונת',
     dirUp: 'למעלה',
     dirDown: 'למטה',
     dirLeft: 'שמאלה',
@@ -128,9 +139,12 @@ export const he = {
     delete: 'מחק',
     hits: (n: number) => `${n} פגיעות`,
     localOnly: 'ההיסטוריה נשמרת במכשיר זה בלבד',
+    export: 'ייצוא לקובץ (HTML)',
+    exportFilename: 'איפוס-מהיר-היסטוריה.html',
   },
 
   common: {
     back: 'חזרה',
+    close: 'סגור',
   },
 } as const

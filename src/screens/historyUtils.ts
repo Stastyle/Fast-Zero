@@ -8,14 +8,14 @@ const DIR_HE: Record<string, string> = {
   right: he.result.dirRight,
 }
 
-/** Short one-line summary, e.g. "4 קליקים למעלה · 2 קליקים שמאלה". */
+/** Short one-line summary, e.g. "4 קליקים למעלה · קליק אחד שמאלה". */
 export function summarizeCorrectionHe(c: Correction): string {
   const parts: string[] = []
   if (c.elevation.direction !== 'none') {
-    parts.push(`${c.elevation.clicks} ${he.result.clicks} ${DIR_HE[c.elevation.direction]}`)
+    parts.push(`${he.result.clicksCount(c.elevation.clicks)} ${DIR_HE[c.elevation.direction]}`)
   }
   if (c.windage.direction !== 'none') {
-    parts.push(`${c.windage.clicks} ${he.result.clicks} ${DIR_HE[c.windage.direction]}`)
+    parts.push(`${he.result.clicksCount(c.windage.clicks)} ${DIR_HE[c.windage.direction]}`)
   }
   return parts.length ? parts.join(' · ') : he.result.allZeroed
 }
