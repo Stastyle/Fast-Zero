@@ -68,7 +68,9 @@ function sessionCard(session: Session): string {
     <span class="profile">${escapeHtml(snapshot.name)}</span>
   </header>
   <p class="clicks">${clicksSummary(session.correction)}</p>
-  <p class="meta">${offsetLine(session.offsetCm.right, session.offsetCm.up)}</p>
+  <p class="meta">${offsetLine(session.offsetCm.right, session.offsetCm.up)}${
+    session.spreadCm !== undefined ? ` · גודל מקבץ: ${session.spreadCm.toFixed(1)} ס"מ` : ''
+  }</p>
   <p class="meta">${hits} · קליק גובה ${snapshot.elevationCmPerClick} ס"מ · קליק רוחב ${snapshot.windageCmPerClick} ס"מ</p>
   ${notes}${image}
 </article>`

@@ -20,10 +20,46 @@ const BLANK: Omit<SightProfile, 'id'> = {
   desiredImpactOffsetCm: { right: 0, up: 0 },
 }
 
+/** Built-in profiles are read-only: show every setting, allow none to change. */
+function ProfileViewScreen({ profile }: { profile: SightProfile }) {
+  const rows: Array<[string, string]> = [
+    [he.profiles.name, profile.name],
+    [he.profiles.kind, profile.kind === 'reflex' ? he.profiles.reflex : he.profiles.iron],
+    [he.profiles.elevationCmPerClick, `${profile.elevationCmPerClick} ס״מ`],
+    [he.profiles.windageCmPerClick, `${profile.windageCmPerClick} ס״מ`],
+    [he.profiles.desiredOffsetUp, `${profile.desiredImpactOffsetCm.up} ס״מ`],
+    [he.profiles.instrUp, profile.instructions.up],
+    [he.profiles.instrDown, profile.instructions.down],
+    [he.profiles.instrLeft, profile.instructions.left],
+    [he.profiles.instrRight, profile.instructions.right],
+  ]
+  return (
+    <div className="screen">
+      <StepHeader title={he.profiles.viewTitle} backTo="/profiles" />
+      <div className="screen-body">
+        <p className="hint">{he.profiles.builtInReadOnly}</p>
+        {profile.notes && (
+          <div className="card" style={{ fontWeight: 700 }}>
+            {profile.notes}
+          </div>
+        )}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <div className="hint">{label}</div>
+              <div style={{ fontWeight: 700 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ProfileEditScreen() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { profiles, updateProfile, addProfile, deleteProfile, resetProfile } = useProfilesStore()
+  const { profiles, updateProfile, addProfile, deleteProfile } = useProfilesStore()
   const existing = id ? profiles.find((p) => p.id === id) : undefined
   const isNew = !existing
 
@@ -41,6 +77,8 @@ export function ProfileEditScreen() {
       instrRight: src.instructions.right,
     }
   })
+
+  if (existing?.builtIn) return <ProfileViewScreen profile={existing} />
 
   const elevation = parseFloat(form.elevationCmPerClick)
   const windage = parseFloat(form.windageCmPerClick)
@@ -160,18 +198,6 @@ export function ProfileEditScreen() {
         <button type="button" className="big-button" disabled={!valid} onClick={save}>
           {he.profiles.save}
         </button>
-        {!isNew && existing.builtIn && (
-          <button
-            type="button"
-            className="big-button big-button--secondary"
-            onClick={() => {
-              resetProfile(existing.id)
-              navigate('/profiles')
-            }}
-          >
-            {he.profiles.resetDefault}
-          </button>
-        )}
         {!isNew && !existing.builtIn && (
           <button
             type="button"

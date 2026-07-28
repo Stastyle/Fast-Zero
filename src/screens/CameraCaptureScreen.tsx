@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
 import { StepHeader } from '../components/StepHeader'
@@ -12,7 +12,7 @@ type PageOrientation = 'portrait' | 'landscape'
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
-  const { setPhoto, setPhotoWithScale } = useWizardStore()
+  const { setPhoto, setPhotoWithScale, profileId } = useWizardStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -112,6 +112,8 @@ export function CameraCaptureScreen() {
     }
   }
 
+  if (!profileId) return <Navigate to="/profiles" replace />
+
   return (
     <div className="screen">
       <StepHeader title={he.camera.title} backTo="/target" />
@@ -138,8 +140,6 @@ export function CameraCaptureScreen() {
                 {he.camera.landscape}
               </button>
             </div>
-          </div>
-          <div className="shutter-bar">
             <button
               type="button"
               className="shutter-button"

@@ -108,7 +108,9 @@ export function ResultScreen() {
     )
   }
 
-  const save = () => {
+  /** Persist once; returns whether the session is (now) saved. */
+  const persist = (): boolean => {
+    if (saved) return true
     setSaveFailed(false)
     const session: Session = {
       id: `s-${Date.now()}`,
@@ -125,11 +127,21 @@ export function ResultScreen() {
       hitsCm: result.hitsCm,
       mpiCm: result.mpiCm,
       offsetCm: result.offsetCm,
+      spreadCm: result.spreadCm,
       correction: result.correction,
       ...(markedImage ? { imageDataUrl: markedImage } : {}),
     }
-    if (appendSession(session)) setSaved(true)
+    const ok = appendSession(session)
+    if (ok) setSaved(true)
     else setSaveFailed(true)
+    return ok
+  }
+
+  // Both actions save first, then roll straight into the next shooting round.
+  const saveAndNextRound = () => {
+    if (!persist()) return
+    clearHits()
+    navigate('/hits')
   }
 
   const { correction } = result
@@ -181,14 +193,10 @@ export function ResultScreen() {
         <button
           type="button"
           className="big-button"
-          disabled={saved || imageState === 'pending'}
-          onClick={save}
+          disabled={imageState === 'pending'}
+          onClick={saveAndNextRound}
         >
-          {saved
-            ? `✓ ${he.result.saved}`
-            : imageState === 'pending'
-              ? he.result.saving
-              : he.result.save}
+          {imageState === 'pending' ? he.result.saving : he.result.save}
         </button>
         {saveFailed && (
           <p style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{he.result.saveFailed}</p>
@@ -196,10 +204,8 @@ export function ResultScreen() {
         <button
           type="button"
           className="big-button big-button--secondary"
-          onClick={() => {
-            clearHits()
-            navigate('/hits')
-          }}
+          disabled={imageState === 'pending'}
+          onClick={saveAndNextRound}
         >
           {he.result.again}
         </button>

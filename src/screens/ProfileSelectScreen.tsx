@@ -45,10 +45,10 @@ export function ProfileSelectScreen() {
             <button
               type="button"
               className="back-button"
-              aria-label={he.profiles.edit}
+              aria-label={p.builtIn ? he.profiles.view : he.profiles.edit}
               onClick={() => navigate(`/profiles/${p.id}/edit`)}
             >
-              ✎
+              {p.builtIn ? '👁' : '✎'}
             </button>
           </div>
         ))}

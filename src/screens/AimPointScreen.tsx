@@ -14,13 +14,14 @@ type Press = { image: Vec2; screen: Vec2 } | null
 /** Tap the point you were aiming at. Reached after any scale source (camera crop, corners, manual). */
 export function AimPointScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, calibration, setAimPoint } = useWizardStore()
+  const { photoUrl, photoSize, calibration, setAimPoint, profileId } = useWizardStore()
   const [aim, setAim] = useState<Vec2 | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
 
   // Same validity rule as the result computation — a zero/NaN scale must not
   // pass silently here only to dead-end at the result screen.
+  if (!profileId) return <Navigate to="/profiles" replace />
   const hasScale = makeCmConverter(calibration) !== null
   if (!photoUrl || !photoSize || !hasScale) return <Navigate to="/target" replace />
 

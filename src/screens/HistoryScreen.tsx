@@ -50,6 +50,7 @@ export function HistoryScreen() {
             <div className="summary">{summarizeCorrectionHe(s.correction)}</div>
             <div className="hint">
               {he.result.offset(s.offsetCm.right, s.offsetCm.up)}
+              {s.spreadCm !== undefined && ` · ${he.result.spread(s.spreadCm.toFixed(1))}`}
             </div>
             {s.imageDataUrl && (
               <button

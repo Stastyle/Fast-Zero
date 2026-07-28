@@ -27,9 +27,16 @@ body {
   height: 100%;
   /* fill the real visible viewport on mobile (URL bar collapse, notch) */
   height: 100dvh;
-  max-width: 640px;
-  margin-inline: auto;
+  width: 100%;
   padding-block-start: env(safe-area-inset-top);
+}
+
+/* Cap line length only on genuinely wide screens (tablet/desktop) */
+@media (min-width: 760px) {
+  .screen {
+    max-width: 680px;
+    margin-inline: auto;
+  }
 }
 
 .screen-body {
@@ -441,11 +448,14 @@ body {
 }
 
 /* A4 ratio via matched width/height clamps (no aspect-ratio dependency).
-   Portrait: 210×297. Landscape: 297×210. */
+   Portrait: 210×297. Landscape: 297×210.
+   PRECISION: the white line is an OUTLINE (drawn outside the box), so the
+   element's measured rect — which the capture crops — is exactly the area
+   the user aligns the page edges into, with no border pixels included. */
 .a4-frame {
   position: relative;
-  border: 3px solid #fff;
-  border-radius: 4px;
+  outline: 3px solid #fff;
+  border-radius: 2px;
   box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.45);
 }
 
@@ -469,15 +479,15 @@ body {
 }
 
 .a4-frame::before {
-  top: -3px;
-  inset-inline-start: -3px;
+  top: -8px;
+  inset-inline-start: -8px;
   border-block-end: none;
   border-inline-end: none;
 }
 
 .a4-frame::after {
-  bottom: -3px;
-  inset-inline-end: -3px;
+  bottom: -8px;
+  inset-inline-end: -8px;
   border-block-start: none;
   border-inline-start: none;
 }
@@ -521,21 +531,25 @@ body {
   z-index: 2;
 }
 
-.shutter-bar {
-  display: flex;
-  justify-content: center;
-  padding: 14px 16px;
-  padding-block-end: calc(14px + env(safe-area-inset-bottom));
-  background: #000;
-}
-
+/* Shutter floats at mid-height on the screen edge — where the thumb rests
+   while the other hand steadies the phone over the target. */
 .shutter-button {
-  width: 84px;
-  height: 84px;
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 14px;
+  transform: translateY(-50%);
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
-  border: 5px solid #fff;
+  border: 6px solid #fff;
   background: #d81b1b;
   cursor: pointer;
+  z-index: 3;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.shutter-button:active {
+  transform: translateY(-50%) scale(0.94);
 }
 
 .shutter-button:disabled {
@@ -641,6 +655,45 @@ body {
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--color-accent-soft);
+}
+
+/* --- Sight guide: photo + turn/click legend --- */
+.sight-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sight-photo {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border);
+}
+
+.sight-guide-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.sight-guide-axis {
+  min-width: 48px;
+  color: var(--color-fg-soft);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.sight-guide-turn {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--color-amber);
+}
+
+.sight-guide-row--zeroed {
+  color: var(--color-accent);
+  font-size: var(--text-lg);
 }
 
 .zeroed-banner {

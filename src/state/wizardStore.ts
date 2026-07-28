@@ -38,14 +38,37 @@ const emptyCalibration = (mode: TargetMode): CalibrationState => ({
 
 let hitCounter = 0
 
+const PROFILE_KEY = 'fastzero.wizard.profileId'
+
+/** Survive mid-flow page reloads (mobile browsers evict backgrounded PWAs). */
+function loadPersistedProfileId(): string | null {
+  try {
+    return sessionStorage.getItem(PROFILE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function persistProfileId(id: string | null): void {
+  try {
+    if (id === null) sessionStorage.removeItem(PROFILE_KEY)
+    else sessionStorage.setItem(PROFILE_KEY, id)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 export const useWizardStore = create<WizardState>((set) => ({
-  profileId: null,
+  profileId: loadPersistedProfileId(),
   photoUrl: null,
   photoSize: null,
   calibration: emptyCalibration('photo'),
   hits: [],
 
-  selectProfile: (id) => set({ profileId: id }),
+  selectProfile: (id) => {
+    persistProfileId(id)
+    set({ profileId: id })
+  },
 
   setPhoto: (url, width, height) =>
     set((s) => {
@@ -108,6 +131,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   resetWizard: () =>
     set((s) => {
       if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
+      persistProfileId(null)
       return {
         profileId: null,
         photoUrl: null,

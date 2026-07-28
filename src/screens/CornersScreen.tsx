@@ -14,12 +14,13 @@ type Press = { image: Vec2; screen: Vec2 } | null
 /** Fallback scale flow: tap the 4 corners of the A4 page in the photo. */
 export function CornersScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, setHomography } = useWizardStore()
+  const { photoUrl, photoSize, setHomography, profileId } = useWizardStore()
   const [corners, setCorners] = useState<Vec2[]>([])
   const [error, setError] = useState<string | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
 
+  if (!profileId) return <Navigate to="/profiles" replace />
   if (!photoUrl || !photoSize) return <Navigate to="/target" replace />
 
   const onTap = (p: Vec2) => {
