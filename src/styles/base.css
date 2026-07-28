@@ -1,0 +1,350 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+
+.screen-body--flush {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--space);
+  border-block-end: 2px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.step-header h1 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  flex: 1;
+}
+
+.back-button {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  font-size: var(--text-lg);
+  background: none;
+  border: none;
+  color: var(--color-fg);
+  cursor: pointer;
+}
+
+.big-button {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-bg);
+  background: var(--color-fg);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  padding: 12px 20px;
+}
+
+.big-button:disabled {
+  opacity: 0.35;
+}
+
+.big-button--secondary {
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 3px solid var(--color-border);
+}
+
+.big-button--danger {
+  background: var(--color-danger);
+}
+
+.card {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space);
+  background: var(--color-bg);
+}
+
+.card--tappable {
+  cursor: pointer;
+  width: 100%;
+  text-align: start;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.card--selected {
+  outline: 4px solid var(--color-accent);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-warn);
+  color: #fff;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  font-family: inherit;
+  font-size: var(--text-base);
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.hint {
+  font-size: 15px;
+  color: #444;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  min-height: var(--tap-min);
+  padding: 8px 16px;
+  font-size: var(--text-base);
+  font-family: inherit;
+  font-weight: 700;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+}
+
+.chip--active {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* --- Zoomable stage --- */
+.stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #ddd;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stage-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.stage-content img {
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.marker--hit {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-marker);
+  border-radius: 50%;
+  color: var(--color-marker);
+  font-weight: 700;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.marker--excluded {
+  border-color: var(--color-marker-excluded);
+  color: var(--color-marker-excluded);
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.marker--aim {
+  width: 34px;
+  height: 34px;
+  color: var(--color-aim);
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.marker--mpi {
+  width: 34px;
+  height: 34px;
+  color: var(--color-mpi);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.marker--cal {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-mpi);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--color-mpi);
+}
+
+.magnifier {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid var(--color-fg);
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--space);
+  border-block-start: 2px solid var(--color-border);
+  background: var(--color-bg);
+  padding-block-end: calc(12px + env(safe-area-inset-bottom));
+}
+
+.hit-popover {
+  position: fixed;
+  inset-inline: 16px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 12px;
+  z-index: 20;
+}
+
+.hit-popover .big-button {
+  min-height: var(--tap-min);
+  font-size: var(--text-base);
+}
+
+/* --- Result --- */
+.clicks-card {
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space);
+  text-align: center;
+}
+
+.clicks-card .axis-label {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.clicks-card .clicks-number {
+  font-size: var(--text-huge);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.clicks-card .clicks-arrow {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.clicks-card .instruction {
+  font-size: var(--text-lg);
+  margin-block-start: 8px;
+}
+
+.clicks-card--zeroed {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.zeroed-banner {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--color-accent);
+  text-align: center;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-item .date {
+  font-size: 15px;
+  color: #444;
+}
+
+.history-item .summary {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
