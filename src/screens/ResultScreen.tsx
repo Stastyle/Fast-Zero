@@ -19,8 +19,11 @@ export function ResultScreen() {
   const { profileId, calibration, hits, clearHits, photoUrl, photoSize } = useWizardStore()
   const profiles = useProfilesStore((s) => s.profiles)
   const [saved, setSaved] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
   const [markedImage, setMarkedImage] = useState<string | null>(null)
+  // 'pending' while the composite renders — saving is held back so a fast tap
+  // on the save button cannot persist the session without its photo.
+  const [imageState, setImageState] = useState<'pending' | 'done' | 'failed'>('pending')
   const [showPhoto, setShowPhoto] = useState(false)
 
   const profile = profiles.find((p) => p.id === profileId) ?? null
@@ -48,8 +51,12 @@ export function ResultScreen() {
   const sourceUrl = isSchematic ? SCHEMATIC.url : photoUrl
   const sourceSize = isSchematic ? { width: SCHEMATIC.width, height: SCHEMATIC.height } : photoSize
   useEffect(() => {
-    if (!ready || !sourceUrl || !sourceSize) return
+    if (!ready || !sourceUrl || !sourceSize) {
+      setImageState('failed')
+      return
+    }
     let cancelled = false
+    setImageState('pending')
     renderMarkedImage({
       imageUrl: sourceUrl,
       imageWidth: sourceSize.width,
@@ -61,10 +68,13 @@ export function ResultScreen() {
       quality: 0.7,
     })
       .then((url) => {
-        if (!cancelled) setMarkedImage(url)
+        if (cancelled) return
+        setMarkedImage(url)
+        setImageState('done')
       })
       .catch(() => {
-        /* photo viewing/saving is an extra — the numbers still stand */
+        // photo viewing/saving is an extra — the numbers still stand
+        if (!cancelled) setImageState('failed')
       })
     return () => {
       cancelled = true
@@ -74,7 +84,7 @@ export function ResultScreen() {
   if (!ready || !result) return <Navigate to="/hits" replace />
 
   const save = () => {
-    setSaving(true)
+    setSaveFailed(false)
     const session: Session = {
       id: `s-${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -93,9 +103,8 @@ export function ResultScreen() {
       correction: result.correction,
       ...(markedImage ? { imageDataUrl: markedImage } : {}),
     }
-    appendSession(session)
-    setSaving(false)
-    setSaved(true)
+    if (appendSession(session)) setSaved(true)
+    else setSaveFailed(true)
   }
 
   const { correction } = result
@@ -130,7 +139,7 @@ export function ResultScreen() {
           <SightDiagram kind={profile.kind} correction={correction} />
         </div>
         <div className="card">
-          <div>{he.result.offset(result.offsetCm.right.toFixed(1), result.offsetCm.up.toFixed(1))}</div>
+          <div>{he.result.offset(result.offsetCm.right, result.offsetCm.up)}</div>
           {result.includedCount > 1 && <div>{he.result.spread(result.spreadCm.toFixed(1))}</div>}
         </div>
         {markedImage && (
@@ -142,9 +151,21 @@ export function ResultScreen() {
             🖼 {he.result.showPhoto}
           </button>
         )}
-        <button type="button" className="big-button" disabled={saved || saving} onClick={save}>
-          {saved ? `✓ ${he.result.saved}` : saving ? he.result.saving : he.result.save}
+        <button
+          type="button"
+          className="big-button"
+          disabled={saved || imageState === 'pending'}
+          onClick={save}
+        >
+          {saved
+            ? `✓ ${he.result.saved}`
+            : imageState === 'pending'
+              ? he.result.saving
+              : he.result.save}
         </button>
+        {saveFailed && (
+          <p style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{he.result.saveFailed}</p>
+        )}
         <button
           type="button"
           className="big-button big-button--secondary"

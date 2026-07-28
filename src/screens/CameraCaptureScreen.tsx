@@ -100,9 +100,13 @@ export function CameraCaptureScreen() {
   // camera app; scale then comes from tapping the page corners.
   const onFallbackFile = async (file: File | undefined) => {
     if (!file) return
-    const { url, width, height } = await preparePhoto(file)
-    setPhoto(url, width, height)
-    navigate('/corners')
+    try {
+      const { url, width, height } = await preparePhoto(file)
+      setPhoto(url, width, height)
+      navigate('/corners')
+    } catch {
+      setState('error')
+    }
   }
 
   return (

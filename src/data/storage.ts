@@ -66,12 +66,18 @@ export function loadStore(): StoreV1 {
     if (!isValidStore(migrated)) throw new Error('invalid store shape')
     return migrated
   } catch {
-    // Preserve the corrupt payload for possible recovery, then start fresh.
+    // Remove the bad key FIRST (removeItem cannot hit quota), then best-effort
+    // back up the corrupt payload — the backup write may exceed quota when the
+    // payload is large, and must not block the cleanup.
     try {
-      localStorage.setItem(CORRUPT_KEY, raw)
       localStorage.removeItem(KEY)
     } catch {
-      /* storage unavailable — nothing more to do */
+      /* storage unavailable */
+    }
+    try {
+      localStorage.setItem(CORRUPT_KEY, raw)
+    } catch {
+      /* no room for a backup — cleanup already done */
     }
     return defaultStore()
   }
@@ -86,21 +92,20 @@ function stripOldImages(sessions: Session[], keepImages: number): Session[] {
   })
 }
 
-export function saveStore(store: StoreV1): void {
-  const sessions = stripOldImages(store.sessions.slice(-MAX_SESSIONS), MAX_SESSION_IMAGES)
-  const capped: StoreV1 = { ...store, sessions }
-  try {
-    localStorage.setItem(KEY, JSON.stringify(capped))
-    return
-  } catch {
-    /* likely quota — retry below with images dropped entirely */
+/** Persist the store. Returns false when nothing could be written (quota/unavailable). */
+export function saveStore(store: StoreV1): boolean {
+  const sessions = store.sessions.slice(-MAX_SESSIONS)
+  // On quota pressure degrade gradually: keep fewer images before dropping all.
+  for (const keepImages of [MAX_SESSION_IMAGES, 10, 5, 0]) {
+    try {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({ ...store, sessions: stripOldImages(sessions, keepImages) }),
+      )
+      return true
+    } catch {
+      /* quota or unavailable — try a smaller payload */
+    }
   }
-  try {
-    localStorage.setItem(
-      KEY,
-      JSON.stringify({ ...capped, sessions: stripOldImages(capped.sessions, 0) }),
-    )
-  } catch {
-    /* storage unavailable — history is best-effort */
-  }
+  return false
 }

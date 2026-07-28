@@ -28,15 +28,26 @@ function formatHeDateTime(iso: string): string {
   })
 }
 
+function clicksCount(n: number): string {
+  return n === 1 ? 'קליק אחד' : `${n} קליקים`
+}
+
 function clicksSummary(correction: Correction): string {
   const parts: string[] = []
   if (correction.elevation.direction !== 'none') {
-    parts.push(`${correction.elevation.clicks} קליקים ${directionHe[correction.elevation.direction]}`)
+    parts.push(`${clicksCount(correction.elevation.clicks)} ${directionHe[correction.elevation.direction]}`)
   }
   if (correction.windage.direction !== 'none') {
-    parts.push(`${correction.windage.clicks} קליקים ${directionHe[correction.windage.direction]}`)
+    parts.push(`${clicksCount(correction.windage.clicks)} ${directionHe[correction.windage.direction]}`)
   }
   return parts.length ? parts.join(' · ') : 'מאופס'
+}
+
+/** Sign-aware offset line: negative right reads שמאלה, negative up reads למטה. */
+function offsetLine(rightCm: number, upCm: number): string {
+  const r = `${Math.abs(rightCm).toFixed(1)} ס"מ ${rightCm < 0 ? 'שמאלה' : 'ימינה'}`
+  const u = `${Math.abs(upCm).toFixed(1)} ס"מ ${upCm < 0 ? 'למטה' : 'למעלה'}`
+  return `סטייה: ${r} · ${u}`
 }
 
 function sessionCard(session: Session): string {
@@ -57,7 +68,7 @@ function sessionCard(session: Session): string {
     <span class="profile">${escapeHtml(snapshot.name)}</span>
   </header>
   <p class="clicks">${clicksSummary(session.correction)}</p>
-  <p class="meta">סטייה: ${session.offsetCm.right.toFixed(1)} ס"מ ימינה · ${session.offsetCm.up.toFixed(1)} ס"מ למעלה</p>
+  <p class="meta">${offsetLine(session.offsetCm.right, session.offsetCm.up)}</p>
   <p class="meta">${hits} · קליק גובה ${snapshot.elevationCmPerClick} ס"מ · קליק רוחב ${snapshot.windageCmPerClick} ס"מ</p>
   ${notes}${image}
 </article>`
@@ -139,5 +150,7 @@ export function downloadHtml(filename: string, html: string): void {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
+  // Revoking in the same task intermittently aborts the download on WebKit/iOS
+  // (the blob: URL dies before the navigation fetches it) — defer well past it.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }

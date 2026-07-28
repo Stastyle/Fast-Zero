@@ -36,6 +36,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space);
+  padding-block-end: calc(var(--space) + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: var(--space);
@@ -362,7 +363,8 @@ body {
 }
 
 .shutter-button:disabled {
-  background: #666;
+  background: #444;
+  border-color: #888;
 }
 
 /* --- Full-screen image viewer --- */
@@ -397,13 +399,21 @@ body {
   cursor: pointer;
 }
 
+.history-thumb-button {
+  padding: 0;
+  border: none;
+  background: none;
+  width: 100%;
+  cursor: pointer;
+}
+
 .history-thumb {
+  display: block;
   width: 100%;
   max-height: 180px;
   object-fit: cover;
   border: 2px solid var(--color-border);
   border-radius: 8px;
-  cursor: pointer;
 }
 
 .bottom-bar {

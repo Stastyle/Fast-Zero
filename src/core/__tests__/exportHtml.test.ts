@@ -61,7 +61,7 @@ describe('buildExportHtml', () => {
 
   it('renders offsets and hit counts', () => {
     const html = buildExportHtml([makeSession()], exportedAt)
-    expect(html).toContain('סטייה: 1.2 ס"מ ימינה · -2.5 ס"מ למעלה')
+    expect(html).toContain('סטייה: 1.2 ס"מ ימינה · 2.5 ס"מ למטה')
     expect(html).toContain('4 פגיעות (1 מוחרגות)')
   })
 

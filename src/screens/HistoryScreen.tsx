@@ -49,15 +49,16 @@ export function HistoryScreen() {
             </div>
             <div className="summary">{summarizeCorrectionHe(s.correction)}</div>
             <div className="hint">
-              {he.result.offset(s.offsetCm.right.toFixed(1), s.offsetCm.up.toFixed(1))}
+              {he.result.offset(s.offsetCm.right, s.offsetCm.up)}
             </div>
             {s.imageDataUrl && (
-              <img
-                className="history-thumb"
-                src={s.imageDataUrl}
-                alt=""
+              <button
+                type="button"
+                className="history-thumb-button"
                 onClick={() => setOpenImage(s.imageDataUrl!)}
-              />
+              >
+                <img className="history-thumb" src={s.imageDataUrl} alt="תמונת המטרה" />
+              </button>
             )}
             <button
               type="button"
