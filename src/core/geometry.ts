@@ -39,7 +39,7 @@ export function makeCmConverter(cal: {
   homography?: number[] | null
   pxPerCm?: number | null
 }): ((point: Vec2, origin: Vec2) => CmVec) | null {
-  if (cal.homography) {
+  if (cal.homography && cal.homography.length === 9 && cal.homography.every(Number.isFinite)) {
     const h = cal.homography
     return (point, origin) => {
       const p = applyHomography(h, point)
@@ -47,7 +47,7 @@ export function makeCmConverter(cal: {
       return { right: p.x - o.x, up: o.y - p.y }
     }
   }
-  if (cal.pxPerCm) {
+  if (typeof cal.pxPerCm === 'number' && Number.isFinite(cal.pxPerCm) && cal.pxPerCm > 0) {
     const scale = cal.pxPerCm
     return (point, origin) => pxToCm(point, origin, scale)
   }
