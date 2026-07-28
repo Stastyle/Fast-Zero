@@ -3,6 +3,8 @@ import type { Session, SightProfile } from '../core/types'
 const KEY = 'fastzero.store'
 const CORRUPT_KEY = 'fastzero.store.corrupt'
 export const MAX_SESSIONS = 200
+/** Newest sessions that keep their embedded target image (localStorage budget). */
+export const MAX_SESSION_IMAGES = 20
 
 export interface StoreV1 {
   schemaVersion: 1
@@ -75,14 +77,30 @@ export function loadStore(): StoreV1 {
   }
 }
 
+function stripOldImages(sessions: Session[], keepImages: number): Session[] {
+  const cutoff = sessions.length - keepImages
+  return sessions.map((s, i) => {
+    if (i >= cutoff || s.imageDataUrl === undefined) return s
+    const { imageDataUrl: _dropped, ...rest } = s
+    return rest
+  })
+}
+
 export function saveStore(store: StoreV1): void {
-  const capped: StoreV1 =
-    store.sessions.length > MAX_SESSIONS
-      ? { ...store, sessions: store.sessions.slice(-MAX_SESSIONS) }
-      : store
+  const sessions = stripOldImages(store.sessions.slice(-MAX_SESSIONS), MAX_SESSION_IMAGES)
+  const capped: StoreV1 = { ...store, sessions }
   try {
     localStorage.setItem(KEY, JSON.stringify(capped))
+    return
   } catch {
-    /* quota exceeded or storage unavailable — history is best-effort */
+    /* likely quota — retry below with images dropped entirely */
+  }
+  try {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ ...capped, sessions: stripOldImages(capped.sessions, 0) }),
+    )
+  } catch {
+    /* storage unavailable — history is best-effort */
   }
 }

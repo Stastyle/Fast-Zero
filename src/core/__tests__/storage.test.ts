@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultStore, loadStore, MAX_SESSIONS, saveStore, type StoreV1 } from '../../data/storage'
+import {
+  defaultStore,
+  loadStore,
+  MAX_SESSION_IMAGES,
+  MAX_SESSIONS,
+  saveStore,
+  type StoreV1,
+} from '../../data/storage'
 import type { Session } from '../types'
 
 const fakeSession = (id: string): Session => ({
@@ -53,6 +60,21 @@ describe('storage', () => {
   it('recovers from valid JSON with a wrong shape', () => {
     localStorage.setItem('fastzero.store', JSON.stringify({ schemaVersion: 1, sessions: 'nope' }))
     expect(loadStore()).toEqual(defaultStore())
+  })
+
+  it('keeps images only on the newest sessions', () => {
+    const withImage = (id: string): Session => ({
+      ...fakeSession(id),
+      imageDataUrl: 'data:image/jpeg;base64,AAAA',
+    })
+    const sessions = Array.from({ length: MAX_SESSION_IMAGES + 5 }, (_, i) => withImage(`s${i}`))
+    saveStore({ ...defaultStore(), sessions })
+    const loaded = loadStore()
+    expect(loaded.sessions).toHaveLength(MAX_SESSION_IMAGES + 5)
+    const withImages = loaded.sessions.filter((s) => s.imageDataUrl !== undefined)
+    expect(withImages).toHaveLength(MAX_SESSION_IMAGES)
+    expect(loaded.sessions[0].imageDataUrl).toBeUndefined()
+    expect(loaded.sessions.at(-1)!.imageDataUrl).toBeDefined()
   })
 
   it('evicts oldest sessions beyond the cap', () => {

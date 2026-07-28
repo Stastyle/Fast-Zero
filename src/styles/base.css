@@ -25,8 +25,11 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* fill the real visible viewport on mobile (URL bar collapse, notch) */
+  height: 100dvh;
   max-width: 640px;
   margin-inline: auto;
+  padding-block-start: env(safe-area-inset-top);
 }
 
 .screen-body {
@@ -338,6 +341,69 @@ body {
   color: #fff;
   font-size: var(--text-lg);
   z-index: 2;
+}
+
+/* Big round shutter button — easy to hit with a thumb outdoors */
+.shutter-bar {
+  display: flex;
+  justify-content: center;
+  padding: 14px 16px;
+  padding-block-end: calc(14px + env(safe-area-inset-bottom));
+  background: #000;
+}
+
+.shutter-button {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  background: #d81b1b;
+  cursor: pointer;
+}
+
+.shutter-button:disabled {
+  background: #666;
+}
+
+/* --- Full-screen image viewer --- */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.image-modal img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  inset-inline-start: 12px;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.history-thumb {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .bottom-bar {

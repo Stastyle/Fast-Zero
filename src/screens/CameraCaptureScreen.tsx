@@ -116,16 +116,14 @@ export function CameraCaptureScreen() {
             <div className="camera-hint">{he.camera.align}</div>
             {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
           </div>
-          <div className="bottom-bar">
+          <div className="shutter-bar">
             <button
               type="button"
-              className="big-button"
-              style={{ flex: 1 }}
+              className="shutter-button"
+              aria-label={he.camera.capture}
               disabled={state !== 'live'}
               onClick={capture}
-            >
-              📷 {he.camera.capture}
-            </button>
+            />
           </div>
         </>
       ) : (

@@ -114,6 +114,9 @@ export const he = {
     save: 'שמור להיסטוריה',
     again: 'איפוס נוסף',
     saved: 'נשמר!',
+    saving: 'שומר…',
+    showPhoto: 'הצג את הצילום עם הסימונים',
+    diagramTitle: 'איפה מכוונים בכוונת',
     dirUp: 'למעלה',
     dirDown: 'למטה',
     dirLeft: 'שמאלה',
@@ -128,9 +131,12 @@ export const he = {
     delete: 'מחק',
     hits: (n: number) => `${n} פגיעות`,
     localOnly: 'ההיסטוריה נשמרת במכשיר זה בלבד',
+    export: 'ייצוא לקובץ (HTML)',
+    exportFilename: 'איפוס-מהיר-היסטוריה.html',
   },
 
   common: {
     back: 'חזרה',
+    close: 'סגור',
   },
 } as const
