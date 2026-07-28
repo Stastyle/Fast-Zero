@@ -9,17 +9,15 @@ import { Magnifier } from '../components/Magnifier'
 import { computePxPerCm, validateCalibration } from '../core/calibration'
 import type { Vec2 } from '../core/types'
 
-type Step = 'points' | 'aim'
 type Press = { image: Vec2; screen: Vec2 } | null
 
+/** Manual two-point scale calibration — fallback for non-A4 targets. */
 export function CalibrateScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, setCalibrationPoints, setAimPoint } = useWizardStore()
-  const [step, setStep] = useState<Step>('points')
+  const { photoUrl, photoSize, setCalibrationPoints } = useWizardStore()
   const [points, setPoints] = useState<Vec2[]>([])
   const [distanceCm, setDistanceCm] = useState(1)
   const [customCm, setCustomCm] = useState('')
-  const [aim, setAim] = useState<Vec2 | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
@@ -28,11 +26,7 @@ export function CalibrateScreen() {
 
   const onTap = (p: Vec2) => {
     setError(null)
-    if (step === 'points') {
-      setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))
-    } else {
-      setAim(p)
-    }
+    setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))
   }
 
   const effectiveCm = customCm !== '' ? parseFloat(customCm) : distanceCm
@@ -45,20 +39,14 @@ export function CalibrateScreen() {
       return
     }
     setCalibrationPoints(a, b, effectiveCm, computePxPerCm(a, b, effectiveCm))
-    setStep('aim')
-  }
-
-  const confirmAim = () => {
-    if (!aim) return
-    setAimPoint(aim)
-    navigate('/hits')
+    navigate('/aim')
   }
 
   return (
     <div className="screen">
-      <StepHeader title={he.calibrate.title} backTo="/target" />
+      <StepHeader title={he.calibrate.title} backTo="/corners" />
       <div style={{ padding: '10px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
-        <strong>{step === 'points' ? he.calibrate.stepPoints : he.calibrate.stepAim}</strong>
+        <strong>{he.calibrate.stepPoints}</strong>
         {error && <div style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{error}</div>}
       </div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
@@ -70,11 +58,7 @@ export function CalibrateScreen() {
           onPress={setPress}
           onScaleChange={setScale}
         >
-          <MarkerLayer
-            calibrationPoints={step === 'points' ? points : []}
-            aimPoint={step === 'aim' ? aim : null}
-            markerScale={1 / scale}
-          />
+          <MarkerLayer calibrationPoints={points} markerScale={1 / scale} />
         </ZoomableStage>
         {press && (
           <Magnifier
@@ -86,45 +70,43 @@ export function CalibrateScreen() {
           />
         )}
       </div>
-      {step === 'points' && (
-        <div style={{ padding: '10px 16px' }} className="chips">
-          <button
-            type="button"
-            className={`chip${customCm === '' && distanceCm === 1 ? ' chip--active' : ''}`}
-            onClick={() => {
-              setDistanceCm(1)
-              setCustomCm('')
-            }}
-          >
-            {he.calibrate.presetSquare}
-          </button>
-          <button
-            type="button"
-            className={`chip${customCm === '' && distanceCm === 10 ? ' chip--active' : ''}`}
-            onClick={() => {
-              setDistanceCm(10)
-              setCustomCm('')
-            }}
-          >
-            {he.calibrate.preset10}
-          </button>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder={he.calibrate.customCm}
-            value={customCm}
-            onChange={(e) => setCustomCm(e.target.value)}
-            style={{
-              width: 90,
-              minHeight: 'var(--tap-min)',
-              border: '2px solid var(--color-border)',
-              borderRadius: 999,
-              padding: '0 12px',
-              fontSize: 'var(--text-base)',
-            }}
-          />
-        </div>
-      )}
+      <div style={{ padding: '10px 16px' }} className="chips">
+        <button
+          type="button"
+          className={`chip${customCm === '' && distanceCm === 1 ? ' chip--active' : ''}`}
+          onClick={() => {
+            setDistanceCm(1)
+            setCustomCm('')
+          }}
+        >
+          {he.calibrate.presetSquare}
+        </button>
+        <button
+          type="button"
+          className={`chip${customCm === '' && distanceCm === 10 ? ' chip--active' : ''}`}
+          onClick={() => {
+            setDistanceCm(10)
+            setCustomCm('')
+          }}
+        >
+          {he.calibrate.preset10}
+        </button>
+        <input
+          type="number"
+          inputMode="decimal"
+          placeholder={he.calibrate.customCm}
+          value={customCm}
+          onChange={(e) => setCustomCm(e.target.value)}
+          style={{
+            width: 90,
+            minHeight: 'var(--tap-min)',
+            border: '2px solid var(--color-border)',
+            borderRadius: 999,
+            padding: '0 12px',
+            fontSize: 'var(--text-base)',
+          }}
+        />
+      </div>
       <div className="bottom-bar">
         <button
           type="button"
@@ -132,8 +114,7 @@ export function CalibrateScreen() {
           style={{ flex: 1 }}
           onClick={() => {
             setError(null)
-            if (step === 'points') setPoints([])
-            else setAim(null)
+            setPoints([])
           }}
         >
           {he.calibrate.redo}
@@ -142,8 +123,8 @@ export function CalibrateScreen() {
           type="button"
           className="big-button"
           style={{ flex: 2 }}
-          disabled={step === 'points' ? points.length !== 2 : !aim}
-          onClick={step === 'points' ? confirmPoints : confirmAim}
+          disabled={points.length !== 2}
+          onClick={confirmPoints}
         >
           {he.calibrate.next}
         </button>

@@ -3,6 +3,9 @@ import { HomeScreen } from './screens/HomeScreen'
 import { ProfileSelectScreen } from './screens/ProfileSelectScreen'
 import { ProfileEditScreen } from './screens/ProfileEditScreen'
 import { TargetInputScreen } from './screens/TargetInputScreen'
+import { CameraCaptureScreen } from './screens/CameraCaptureScreen'
+import { CornersScreen } from './screens/CornersScreen'
+import { AimPointScreen } from './screens/AimPointScreen'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { TapHitsScreen } from './screens/TapHitsScreen'
 import { ResultScreen } from './screens/ResultScreen'
@@ -14,6 +17,9 @@ const router = createHashRouter([
   { path: '/profiles/new', element: <ProfileEditScreen /> },
   { path: '/profiles/:id/edit', element: <ProfileEditScreen /> },
   { path: '/target', element: <TargetInputScreen /> },
+  { path: '/camera', element: <CameraCaptureScreen /> },
+  { path: '/corners', element: <CornersScreen /> },
+  { path: '/aim', element: <AimPointScreen /> },
   { path: '/calibrate', element: <CalibrateScreen /> },
   { path: '/hits', element: <TapHitsScreen /> },
   { path: '/result', element: <ResultScreen /> },

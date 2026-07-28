@@ -1,3 +1,4 @@
+import { applyHomography } from './homography'
 import type { CmVec, Hit, Vec2 } from './types'
 
 /** Mean point of impact of the non-excluded hits, in pixel space. Null when none included. */
@@ -25,6 +26,46 @@ export function pxToCm(point: Vec2, origin: Vec2, pxPerCm: number): CmVec {
 
 export function distancePx(a: Vec2, b: Vec2): number {
   return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+/**
+ * Unified px→cm conversion for both calibration kinds:
+ * - homography (A4 corners): both points map onto the page plane in cm,
+ *   correct even for photos taken at an angle;
+ * - linear pxPerCm (camera-frame crop, schematic, manual two-point).
+ * Returned CmVec is relative to `origin` with `up` growing UP.
+ */
+export function makeCmConverter(cal: {
+  homography?: number[] | null
+  pxPerCm?: number | null
+}): ((point: Vec2, origin: Vec2) => CmVec) | null {
+  if (cal.homography) {
+    const h = cal.homography
+    return (point, origin) => {
+      const p = applyHomography(h, point)
+      const o = applyHomography(h, origin)
+      return { right: p.x - o.x, up: o.y - p.y }
+    }
+  }
+  if (cal.pxPerCm) {
+    const scale = cal.pxPerCm
+    return (point, origin) => pxToCm(point, origin, scale)
+  }
+  return null
+}
+
+/** Largest pairwise distance among points already converted to cm. */
+export function extremeSpreadCm(points: CmVec[]): number {
+  let max = 0
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      max = Math.max(
+        max,
+        Math.hypot(points[i].right - points[j].right, points[i].up - points[j].up),
+      )
+    }
+  }
+  return max
 }
 
 /** Largest distance between any two included hits ("extreme spread"), in px. */

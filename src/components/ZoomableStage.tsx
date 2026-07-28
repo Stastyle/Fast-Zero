@@ -95,10 +95,12 @@ export function ZoomableStage({
 
   useGesture(
     {
-      onDrag: ({ active, movement, memo, tap, event, last, touches }) => {
+      onDrag: ({ active, movement, memo, tap, xy, last, touches }) => {
+        // `xy` is the pointer's client position for mouse, pointer, and touch
+        // events alike — never read event.clientX here (absent on TouchEvent).
+        const [cx, cy] = xy
         if (tap) {
-          const e = event as PointerEvent
-          const p = screenToImage(e.clientX, e.clientY)
+          const p = screenToImage(cx, cy)
           if (inImage(p)) onTap?.(p)
           onPress?.(null)
           return
@@ -109,14 +111,11 @@ export function ZoomableStage({
         }
         const start: Transform = memo ?? transformRef.current
         if (active) {
-          const e = event as PointerEvent
-          if (e.clientX !== undefined) {
-            const rect = containerRef.current!.getBoundingClientRect()
-            onPress?.({
-              image: screenToImage(e.clientX, e.clientY),
-              screen: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            })
-          }
+          const rect = containerRef.current!.getBoundingClientRect()
+          onPress?.({
+            image: screenToImage(cx, cy),
+            screen: { x: cx - rect.left, y: cy - rect.top },
+          })
           setTransform(
             clampTransform({ ...start, x: start.x + movement[0], y: start.y + movement[1] }),
           )
