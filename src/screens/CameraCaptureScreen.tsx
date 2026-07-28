@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
 import { StepHeader } from '../components/StepHeader'
-import { A4_SHORT_CM } from '../core/homography'
+import { A4_LONG_CM, A4_SHORT_CM } from '../core/homography'
 import { coverCropRect } from '../core/cameraCrop'
 import { preparePhoto } from './photoUtils'
 
 type CameraState = 'starting' | 'live' | 'error'
+type PageOrientation = 'portrait' | 'landscape'
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ export function CameraCaptureScreen() {
   const streamRef = useRef<MediaStream | null>(null)
   const fallbackRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<CameraState>('starting')
+  const [orientation, setOrientation] = useState<PageOrientation>('portrait')
 
   useEffect(() => {
     let cancelled = false
@@ -86,8 +88,9 @@ export function CameraCaptureScreen() {
     canvas.toBlob(
       (blob) => {
         if (!blob) return
-        // The crop equals the A4 page: its width is exactly 21cm.
-        const pxPerCm = canvas.width / A4_SHORT_CM
+        // The crop equals the A4 page; its width is the page's real width.
+        const pageWidthCm = orientation === 'landscape' ? A4_LONG_CM : A4_SHORT_CM
+        const pxPerCm = canvas.width / pageWidthCm
         setPhotoWithScale(URL.createObjectURL(blob), canvas.width, canvas.height, pxPerCm)
         navigate('/aim')
       },
@@ -116,9 +119,25 @@ export function CameraCaptureScreen() {
         <>
           <div className="camera-stage">
             <video ref={videoRef} playsInline muted autoPlay />
-            <div ref={frameRef} className="a4-frame" />
+            <div ref={frameRef} className={`a4-frame a4-frame--${orientation}`} />
             <div className="camera-hint">{he.camera.align}</div>
             {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
+            <div className="camera-toggle">
+              <button
+                type="button"
+                className={`chip${orientation === 'portrait' ? ' chip--active' : ''}`}
+                onClick={() => setOrientation('portrait')}
+              >
+                {he.camera.portrait}
+              </button>
+              <button
+                type="button"
+                className={`chip${orientation === 'landscape' ? ' chip--active' : ''}`}
+                onClick={() => setOrientation('landscape')}
+              >
+                {he.camera.landscape}
+              </button>
+            </div>
           </div>
           <div className="shutter-bar">
             <button

@@ -107,11 +107,10 @@ export function CalibrateScreen() {
           }}
         />
       </div>
-      <div className="bottom-bar">
+      <div className="action-bar action-bar--row">
         <button
           type="button"
           className="big-button big-button--secondary"
-          style={{ flex: 1 }}
           onClick={() => {
             setError(null)
             setPoints([])
@@ -121,8 +120,7 @@ export function CalibrateScreen() {
         </button>
         <button
           type="button"
-          className="big-button"
-          style={{ flex: 2 }}
+          className="cta-button"
           disabled={points.length !== 2}
           onClick={confirmPoints}
         >

@@ -3,6 +3,7 @@ export const he = {
   appName: 'איפוס מהיר',
 
   home: {
+    tagline: 'מחשבון קליקים לאיפוס על מטרת 25 מ׳',
     newZero: 'איפוס חדש',
     history: 'היסטוריה',
     lastSession: 'איפוס אחרון',
@@ -13,6 +14,7 @@ export const he = {
     title: 'בחר כוונת',
     addNew: '+ כוונת חדשה',
     estimated: 'משוער',
+    fromSpec: 'לפי מפרט',
     edit: 'עריכה',
     editTitle: 'עריכת כוונת',
     newTitle: 'כוונת חדשה',
@@ -46,6 +48,8 @@ export const he = {
     title: 'צילום מטרה',
     align: 'יישר את גבולות דף ה־A4 למסגרת',
     capture: 'צלם',
+    portrait: 'דף לאורך',
+    landscape: 'דף לרוחב',
     starting: 'מפעיל מצלמה…',
     error: 'המצלמה הפנימית לא זמינה או שהצילום נכשל',
     fallback: 'צלם עם מצלמת המכשיר',
@@ -100,6 +104,7 @@ export const he = {
     include: 'החזר פגיעה',
     remove: 'מחק',
     aimPoint: 'נקודת כיוון',
+    selectedHit: (n: number) => `פגיעה ${n}:`,
   },
 
   result: {
@@ -123,6 +128,12 @@ export const he = {
     saved: 'נשמר!',
     saving: 'מכין תמונה…',
     saveFailed: 'השמירה נכשלה — אין מקום באחסון המכשיר',
+    cannotCompute: 'אי אפשר לחשב איפוס — חסרים נתונים:',
+    missingProfile: 'לא נבחרה כוונת',
+    missingScale: 'כיול קנה המידה חסר או פגום',
+    missingAim: 'לא סומנה נקודת כיוון',
+    missingHits: 'לא סומנו פגיעות',
+    restartTarget: 'התחל מטרה מחדש',
     showPhoto: 'הצג את הצילום עם הסימונים',
     diagramTitle: 'איפה מכוונים בכוונת',
     dirUp: 'למעלה',

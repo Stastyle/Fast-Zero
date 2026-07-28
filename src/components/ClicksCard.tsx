@@ -39,7 +39,7 @@ export function ClicksCard({ axisLabel, correction, instruction }: ClicksCardPro
         {correction.clicks}
         <span className="clicks-arrow"> {ARROWS[correction.direction]}</span>
       </div>
-      <div>
+      <div className="clicks-dir">
         {he.result.clicks} {DIR_HE[correction.direction]}
       </div>
       {instruction && <div className="instruction">{instruction}</div>}

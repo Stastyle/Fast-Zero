@@ -75,11 +75,10 @@ export function CornersScreen() {
           {he.corners.manual}
         </button>
       </div>
-      <div className="bottom-bar">
+      <div className="action-bar action-bar--row">
         <button
           type="button"
           className="big-button big-button--secondary"
-          style={{ flex: 1 }}
           disabled={corners.length === 0}
           onClick={() => {
             setError(null)
@@ -90,8 +89,7 @@ export function CornersScreen() {
         </button>
         <button
           type="button"
-          className="big-button"
-          style={{ flex: 2 }}
+          className="cta-button"
           disabled={corners.length !== 4}
           onClick={confirm}
         >
