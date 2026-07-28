@@ -51,11 +51,10 @@ export function AimPointScreen() {
           />
         )}
       </div>
-      <div className="bottom-bar">
+      <div className="action-bar action-bar--row">
         <button
           type="button"
           className="big-button big-button--secondary"
-          style={{ flex: 1 }}
           disabled={!aim}
           onClick={() => setAim(null)}
         >
@@ -63,8 +62,7 @@ export function AimPointScreen() {
         </button>
         <button
           type="button"
-          className="big-button"
-          style={{ flex: 2 }}
+          className="cta-button"
           disabled={!aim}
           onClick={() => {
             setAimPoint(aim!)

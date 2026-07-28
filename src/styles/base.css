@@ -39,7 +39,7 @@ body {
   padding-block-end: calc(var(--space) + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: var(--space);
+  gap: 14px;
 }
 
 .screen-body--flush {
@@ -48,65 +48,164 @@ body {
   overflow: hidden;
 }
 
+/* Short instruction strip under the header */
+.screen-note {
+  padding: 10px var(--space);
+  font-size: var(--text-sm);
+  color: var(--color-fg-soft);
+  background: var(--color-accent-soft);
+  border-block-end: 1px solid var(--color-border);
+}
+
 .step-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 12px var(--space);
-  border-block-end: 2px solid var(--color-border);
-  background: var(--color-bg);
+  background: var(--color-surface);
+  box-shadow: 0 1px 0 var(--color-border);
 }
 
 .step-header h1 {
   font-size: var(--text-lg);
-  font-weight: 700;
+  font-weight: 800;
   flex: 1;
 }
 
 .back-button {
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  font-size: var(--text-lg);
-  background: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--color-muted-bg);
   border: none;
   color: var(--color-fg);
   cursor: pointer;
 }
 
+/* --- Buttons --- */
 .big-button {
   display: block;
   width: 100%;
-  min-height: 64px;
-  font-size: var(--text-lg);
+  min-height: 60px;
+  font-size: 20px;
   font-weight: 700;
   font-family: inherit;
-  color: var(--color-bg);
-  background: var(--color-fg);
+  color: #ffffff;
+  background: var(--color-accent);
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
   padding: 12px 20px;
+  box-shadow: var(--shadow-button);
+  transition: transform 0.06s ease, background 0.15s ease;
+}
+
+.big-button:active {
+  transform: scale(0.985);
+  background: var(--color-accent-strong);
 }
 
 .big-button:disabled {
-  opacity: 0.35;
+  background: #a7b3ab;
+  box-shadow: none;
 }
 
 .big-button--secondary {
   color: var(--color-fg);
-  background: var(--color-bg);
-  border: 3px solid var(--color-border);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-strong);
+  box-shadow: none;
+}
+
+.big-button--secondary:active {
+  background: var(--color-muted-bg);
 }
 
 .big-button--danger {
   background: var(--color-danger);
+  box-shadow: none;
 }
 
+/* Primary call-to-action inside the action bar — always full width, always on top */
+.cta-button {
+  display: block;
+  width: 100%;
+  min-height: 68px;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: inherit;
+  color: #ffffff;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition: transform 0.06s ease, background 0.15s ease;
+}
+
+.cta-button:active {
+  transform: scale(0.985);
+  background: var(--color-accent-strong);
+}
+
+.cta-button:disabled {
+  background: #a7b3ab;
+  box-shadow: none;
+}
+
+/* --- Bottom action area: normal flow, nothing floats over it --- */
+.action-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px var(--space);
+  padding-block-end: calc(12px + env(safe-area-inset-bottom));
+  background: var(--color-surface);
+  box-shadow: 0 -1px 0 var(--color-border);
+}
+
+.action-bar--row {
+  flex-direction: row;
+}
+
+.action-bar--row .cta-button {
+  flex: 2;
+}
+
+.action-bar--row .big-button--secondary {
+  flex: 1;
+  min-height: 68px;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+
+.action-row-label {
+  flex: 1;
+  font-size: var(--text-sm);
+}
+
+.action-row-warning {
+  color: var(--color-amber);
+  font-weight: 700;
+}
+
+/* --- Cards --- */
 .card {
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space);
-  background: var(--color-bg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .card--tappable {
@@ -119,17 +218,21 @@ body {
 }
 
 .card--selected {
-  outline: 4px solid var(--color-accent);
+  outline: 3px solid var(--color-accent);
 }
 
 .badge {
   display: inline-block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--color-warn);
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-amber);
   color: #fff;
+}
+
+.badge--spec {
+  background: var(--color-accent);
 }
 
 .field {
@@ -140,6 +243,7 @@ body {
 
 .field label {
   font-weight: 700;
+  font-size: var(--text-sm);
 }
 
 .field input,
@@ -147,16 +251,22 @@ body {
   font-family: inherit;
   font-size: var(--text-base);
   min-height: var(--tap-min);
-  padding: 8px 12px;
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-bg);
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
   color: var(--color-fg);
 }
 
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+}
+
 .hint {
-  font-size: 15px;
-  color: #444;
+  font-size: var(--text-sm);
+  color: var(--color-fg-soft);
 }
 
 .chips {
@@ -167,20 +277,59 @@ body {
 
 .chip {
   min-height: var(--tap-min);
-  padding: 8px 16px;
-  font-size: var(--text-base);
+  padding: 8px 18px;
+  font-size: var(--text-sm);
   font-family: inherit;
   font-weight: 700;
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 999px;
-  background: var(--color-bg);
+  background: var(--color-surface);
   color: var(--color-fg);
   cursor: pointer;
 }
 
+.chip:disabled {
+  opacity: 0.4;
+}
+
 .chip--active {
   background: var(--color-fg);
-  color: var(--color-bg);
+  color: var(--color-surface);
+}
+
+.chip--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* --- Home --- */
+.home-hero {
+  padding: 28px var(--space) 6px;
+  text-align: center;
+}
+
+.home-hero .logo {
+  width: 76px;
+  height: 76px;
+  margin-inline: auto;
+  margin-block-end: 10px;
+  border-radius: 22px;
+  background: var(--color-fg);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.home-hero h1 {
+  font-size: var(--text-xl);
+  font-weight: 900;
+}
+
+.home-hero .tagline {
+  color: var(--color-fg-soft);
+  font-size: var(--text-sm);
 }
 
 /* --- Zoomable stage --- */
@@ -188,7 +337,7 @@ body {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background: #ddd;
+  background: #dcdad2;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -291,16 +440,23 @@ body {
   object-fit: cover;
 }
 
+/* A4 ratio via matched width/height clamps (no aspect-ratio dependency).
+   Portrait: 210×297. Landscape: 297×210. */
 .a4-frame {
   position: relative;
-  /* A4 portrait: 210 × 297. Width and height are clamped by the same pair of
-     constraints so the ratio holds without relying on aspect-ratio support. */
-  width: min(78vw, 62vh * 0.7071);
-  height: min(78vw * 1.4143, 62vh);
   border: 3px solid #fff;
   border-radius: 4px;
-  /* dim everything outside the frame */
   box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.45);
+}
+
+.a4-frame--portrait {
+  width: min(72vw, 52vh * 0.7071);
+  height: min(72vw * 1.4143, 52vh);
+}
+
+.a4-frame--landscape {
+  width: min(88vw, 42vh * 1.4143);
+  height: min(88vw * 0.7071, 42vh);
 }
 
 .a4-frame::before,
@@ -337,6 +493,27 @@ body {
   z-index: 2;
 }
 
+.camera-toggle {
+  position: absolute;
+  bottom: 14px;
+  inset-inline: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.camera-toggle .chip {
+  border-color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.camera-toggle .chip--active {
+  background: #fff;
+  color: #111;
+}
+
 .camera-starting {
   position: absolute;
   color: #fff;
@@ -344,7 +521,6 @@ body {
   z-index: 2;
 }
 
-/* Big round shutter button — easy to hit with a thumb outdoors */
 .shutter-bar {
   display: flex;
   justify-content: center;
@@ -372,7 +548,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(10, 14, 11, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -382,7 +558,7 @@ body {
 .image-modal img {
   max-width: 100%;
   max-height: 100%;
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 .image-modal-close {
@@ -393,7 +569,7 @@ body {
   height: var(--tap-min);
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
   font-size: 22px;
   cursor: pointer;
@@ -412,71 +588,64 @@ body {
   width: 100%;
   max-height: 180px;
   object-fit: cover;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-}
-
-.bottom-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px var(--space);
-  border-block-start: 2px solid var(--color-border);
-  background: var(--color-bg);
-  padding-block-end: calc(12px + env(safe-area-inset-bottom));
-}
-
-.hit-popover {
-  position: fixed;
-  inset-inline: 16px;
-  bottom: calc(90px + env(safe-area-inset-bottom));
-  display: flex;
-  gap: 12px;
-  z-index: 20;
-}
-
-.hit-popover .big-button {
-  min-height: var(--tap-min);
-  font-size: var(--text-base);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 /* --- Result --- */
+.clicks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .clicks-card {
-  border: 3px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: var(--space);
+  padding: 14px 10px;
   text-align: center;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .clicks-card .axis-label {
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   font-weight: 700;
+  color: var(--color-fg-soft);
+  letter-spacing: 0.02em;
 }
 
 .clicks-card .clicks-number {
-  font-size: var(--text-huge);
-  font-weight: 800;
-  line-height: 1;
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1.05;
 }
 
 .clicks-card .clicks-arrow {
-  font-size: 56px;
+  font-size: 44px;
   line-height: 1;
+  color: var(--color-accent);
+}
+
+.clicks-card .clicks-dir {
+  font-weight: 700;
 }
 
 .clicks-card .instruction {
-  font-size: var(--text-lg);
-  margin-block-start: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-fg-soft);
+  margin-block-start: 6px;
 }
 
 .clicks-card--zeroed {
   border-color: var(--color-accent);
   color: var(--color-accent);
+  background: var(--color-accent-soft);
 }
 
 .zeroed-banner {
   font-size: var(--text-xl);
-  font-weight: 800;
+  font-weight: 900;
   color: var(--color-accent);
   text-align: center;
 }
@@ -488,11 +657,11 @@ body {
 }
 
 .history-item .date {
-  font-size: 15px;
-  color: #444;
+  font-size: var(--text-sm);
+  color: var(--color-fg-soft);
 }
 
 .history-item .summary {
   font-size: var(--text-lg);
-  font-weight: 700;
+  font-weight: 800;
 }

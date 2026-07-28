@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
 import { useProfilesStore } from '../state/profilesStore'
@@ -81,7 +81,32 @@ export function ResultScreen() {
     }
   }, [ready, sourceUrl])
 
-  if (!ready || !result) return <Navigate to="/hits" replace />
+  // Never bounce silently: name what is missing and offer a way back.
+  if (!ready || !result) {
+    const missing: string[] = []
+    if (!profile) missing.push(he.result.missingProfile)
+    if (!toCm) missing.push(he.result.missingScale)
+    if (!calibration.aimPointPx) missing.push(he.result.missingAim)
+    if (!mpiPx) missing.push(he.result.missingHits)
+    return (
+      <div className="screen">
+        <StepHeader title={he.result.title} backTo="/hits" />
+        <div className="screen-body">
+          <div className="card">
+            <p style={{ fontWeight: 800, marginBlockEnd: 8 }}>{he.result.cannotCompute}</p>
+            <ul style={{ paddingInlineStart: 22 }}>
+              {missing.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          </div>
+          <button type="button" className="cta-button" onClick={() => navigate('/target')}>
+            {he.result.restartTarget}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const save = () => {
     setSaveFailed(false)
@@ -116,24 +141,26 @@ export function ResultScreen() {
       <StepHeader title={he.result.title} backTo="/hits" />
       <div className="screen-body">
         {allZeroed && <div className="zeroed-banner">🎯 {he.result.allZeroed}</div>}
-        <ClicksCard
-          axisLabel={he.result.elevation}
-          correction={correction.elevation}
-          instruction={
-            correction.elevation.direction !== 'none'
-              ? profile.instructions[correction.elevation.direction]
-              : undefined
-          }
-        />
-        <ClicksCard
-          axisLabel={he.result.windage}
-          correction={correction.windage}
-          instruction={
-            correction.windage.direction !== 'none'
-              ? profile.instructions[correction.windage.direction]
-              : undefined
-          }
-        />
+        <div className="clicks-grid">
+          <ClicksCard
+            axisLabel={he.result.elevation}
+            correction={correction.elevation}
+            instruction={
+              correction.elevation.direction !== 'none'
+                ? profile.instructions[correction.elevation.direction]
+                : undefined
+            }
+          />
+          <ClicksCard
+            axisLabel={he.result.windage}
+            correction={correction.windage}
+            instruction={
+              correction.windage.direction !== 'none'
+                ? profile.instructions[correction.windage.direction]
+                : undefined
+            }
+          />
+        </div>
         <div className="card">
           <div style={{ fontWeight: 700, marginBlockEnd: 6 }}>{he.result.diagramTitle}</div>
           <SightDiagram kind={profile.kind} correction={correction} />

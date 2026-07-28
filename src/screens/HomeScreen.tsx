@@ -11,14 +11,16 @@ export function HomeScreen() {
 
   return (
     <div className="screen">
-      <header className="step-header">
+      <div className="home-hero">
+        <div className="logo">🎯</div>
         <h1>{he.appName}</h1>
-      </header>
+        <p className="tagline">{he.home.tagline}</p>
+      </div>
       <div className="screen-body">
         <button
           type="button"
-          className="big-button"
-          style={{ minHeight: 96 }}
+          className="cta-button"
+          style={{ minHeight: 88 }}
           onClick={() => {
             resetWizard()
             navigate('/profiles')

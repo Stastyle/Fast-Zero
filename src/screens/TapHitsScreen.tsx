@@ -40,7 +40,7 @@ export function TapHitsScreen() {
   const selectedHit = hits.find((h) => h.id === selectedHitId) ?? null
 
   const onTap = (p: Vec2) => {
-    // A tap near an existing marker selects it (exclude/remove popover); otherwise adds a hit.
+    // A tap near an existing marker selects it (inline actions below); otherwise adds a hit.
     const near = hits.find((h) => distancePx(h.posPx, p) * scale < MARKER_TAP_RADIUS)
     if (near) {
       setSelectedHitId(near.id === selectedHitId ? null : near.id)
@@ -53,9 +53,7 @@ export function TapHitsScreen() {
   return (
     <div className="screen">
       <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} />
-      <div style={{ padding: '8px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
-        <span className="hint">{he.hits.instruction}</span>
-      </div>
+      <div className="screen-note">{he.hits.instruction}</div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
         <ZoomableStage
           imageUrl={imageUrl}
@@ -81,12 +79,17 @@ export function TapHitsScreen() {
             screenPoint={press.screen}
           />
         )}
-        {selectedHit && (
-          <div className="hit-popover">
+      </div>
+      {/* Actions live in normal flow — nothing ever floats over the main button. */}
+      <div className="action-bar">
+        {selectedHit ? (
+          <div className="action-row">
+            <span className="action-row-label">
+              {he.hits.selectedHit(hits.indexOf(selectedHit) + 1)}
+            </span>
             <button
               type="button"
-              className="big-button big-button--secondary"
-              style={{ flex: 1 }}
+              className="chip"
               onClick={() => {
                 toggleExcluded(selectedHit.id)
                 setSelectedHitId(null)
@@ -96,8 +99,7 @@ export function TapHitsScreen() {
             </button>
             <button
               type="button"
-              className="big-button big-button--danger"
-              style={{ flex: 1 }}
+              className="chip chip--danger"
               onClick={() => {
                 removeHit(selectedHit.id)
                 setSelectedHitId(null)
@@ -105,37 +107,35 @@ export function TapHitsScreen() {
             >
               {he.hits.remove}
             </button>
+            <button type="button" className="chip" onClick={() => setSelectedHitId(null)}>
+              {he.common.close}
+            </button>
+          </div>
+        ) : (
+          <div className="action-row">
+            <span className="action-row-label">
+              <strong>{he.hits.count(hits.length)}</strong>
+              {excluded > 0 && ` · ${he.hits.excludedCount(excluded)}`}
+              {included.length > 0 && included.length < 3 && (
+                <span className="action-row-warning"> · {he.hits.fewHitsWarning}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="chip"
+              disabled={hits.length === 0}
+              onClick={() => {
+                setSelectedHitId(null)
+                undoLastHit()
+              }}
+            >
+              ↶ {he.hits.undo}
+            </button>
           </div>
         )}
-      </div>
-      <div className="bottom-bar">
-        <div style={{ flex: 1, fontWeight: 700 }}>
-          {he.hits.count(hits.length)}
-          {excluded > 0 && (
-            <span className="hint"> · {he.hits.excludedCount(excluded)}</span>
-          )}
-          {included.length > 0 && included.length < 3 && (
-            <div className="hint" style={{ color: 'var(--color-warn)' }}>
-              {he.hits.fewHitsWarning}
-            </div>
-          )}
-        </div>
         <button
           type="button"
-          className="big-button big-button--secondary"
-          style={{ width: 'auto' }}
-          disabled={hits.length === 0}
-          onClick={() => {
-            setSelectedHitId(null)
-            undoLastHit()
-          }}
-        >
-          {he.hits.undo}
-        </button>
-        <button
-          type="button"
-          className="big-button"
-          style={{ width: 'auto', flex: 1 }}
+          className="cta-button"
           disabled={included.length === 0}
           onClick={() => navigate('/result')}
         >

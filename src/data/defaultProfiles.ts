@@ -1,5 +1,20 @@
 import type { SightProfile } from '../core/types'
 
+/**
+ * Fallback turn directions when a profile does not define its own.
+ * Reflex turrets commonly move POI opposite the cap arrow when turned
+ * clockwise; AR-style front posts rise POI when screwed clockwise (down
+ * into the base). These are ESTIMATES — verify against the sight manual.
+ */
+export const DEFAULT_TURNS: Record<'reflex' | 'iron', NonNullable<SightProfile['turns']>> = {
+  reflex: { up: 'ccw', down: 'cw', left: 'ccw', right: 'cw' },
+  iron: { up: 'cw', down: 'ccw', left: 'ccw', right: 'cw' },
+}
+
+export function turnsFor(profile: SightProfile): NonNullable<SightProfile['turns']> {
+  return profile.turns ?? DEFAULT_TURNS[profile.kind]
+}
+
 const ESTIMATED = 'ערך משוער — מומלץ לאמת מול הוראות הכוונת'
 
 /**

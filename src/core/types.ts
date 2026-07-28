@@ -37,6 +37,16 @@ export interface SightProfile {
    * {right:0, up:0} means impact should land exactly on the aim point.
    */
   desiredImpactOffsetCm: CmVec
+  /**
+   * Which way to physically TURN the adjuster to move the impact in each
+   * direction. Drives the rotation arrows on the sight illustration.
+   */
+  turns?: {
+    up: 'cw' | 'ccw'
+    down: 'cw' | 'ccw'
+    left: 'cw' | 'ccw'
+    right: 'cw' | 'ccw'
+  }
   notes?: string
 }
 

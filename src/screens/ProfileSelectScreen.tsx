@@ -34,7 +34,12 @@ export function ProfileSelectScreen() {
               <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700 }}>{p.name}</div>
               <div className="hint">
                 גובה: {p.elevationCmPerClick} ס״מ/קליק · צד: {p.windageCmPerClick} ס״מ/קליק{' '}
-                {p.notes && <span className="badge">{he.profiles.estimated}</span>}
+                {p.notes &&
+                  (p.notes.startsWith('לפי מפרט') ? (
+                    <span className="badge badge--spec">{he.profiles.fromSpec}</span>
+                  ) : (
+                    <span className="badge">{he.profiles.estimated}</span>
+                  ))}
               </div>
             </button>
             <button
