@@ -62,7 +62,7 @@ export function TapHitsScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} />
+      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} showProfile />
       <div className="screen-note">{he.hits.instruction}</div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
         <ZoomableStage

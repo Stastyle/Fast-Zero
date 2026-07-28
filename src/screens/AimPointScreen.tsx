@@ -27,7 +27,7 @@ export function AimPointScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.aim.title} backTo="/camera" />
+      <StepHeader title={he.aim.title} backTo="/camera" showProfile />
       <div style={{ padding: '10px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
         <strong>{he.aim.instruction}</strong>
       </div>

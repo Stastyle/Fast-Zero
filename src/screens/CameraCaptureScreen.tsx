@@ -12,7 +12,7 @@ type PageOrientation = 'portrait' | 'landscape'
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
-  const { setPhoto, setPhotoWithScale, profileId } = useWizardStore()
+  const { setPhoto, setPhotoWithScale, setAimPoint, aimFrac, profileId } = useWizardStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -95,7 +95,14 @@ export function CameraCaptureScreen() {
         const pageWidthCm = orientation === 'landscape' ? A4_LONG_CM : A4_SHORT_CM
         const pxPerCm = canvas.width / pageWidthCm
         setPhotoWithScale(URL.createObjectURL(blob), canvas.width, canvas.height, pxPerCm)
-        navigate('/aim')
+        // Same session, same sheet, same frame: the aim point from the previous
+        // round is a page fraction — apply it and go straight to hit marking.
+        if (aimFrac) {
+          setAimPoint({ x: aimFrac.x * canvas.width, y: aimFrac.y * canvas.height })
+          navigate('/hits')
+        } else {
+          navigate('/aim')
+        }
       },
       'image/jpeg',
       0.9,
@@ -119,7 +126,7 @@ export function CameraCaptureScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.camera.title} backTo="/target" />
+      <StepHeader title={he.camera.title} backTo="/target" showProfile />
       {state !== 'error' ? (
         <>
           <div className={`camera-stage camera-stage--${orientation}`}>

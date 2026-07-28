@@ -79,6 +79,20 @@ body {
   flex: 1;
 }
 
+.header-profile {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  border: 1px solid var(--color-accent);
+  white-space: nowrap;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .back-button {
   width: 42px;
   height: 42px;
@@ -686,11 +700,38 @@ body {
   gap: 10px;
 }
 
+.sight-photo-wrap {
+  position: relative;
+}
+
 .sight-photo {
   display: block;
   width: 100%;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--color-border);
+}
+
+/* Rotation arrow pinned to the adjuster's anchor point on the photo */
+.sight-anchor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.sight-anchor-clicks {
+  margin-block-start: -8px;
+  min-width: 30px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 17px;
+  color: #fff;
+  background: var(--color-amber);
+  border-radius: 999px;
+  padding: 1px 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .sight-guide-row {

@@ -17,7 +17,7 @@ export function TargetInputScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.target.title} backTo="/profiles" />
+      <StepHeader title={he.target.title} backTo="/profiles" showProfile />
       <div className="screen-body">
         <button
           type="button"

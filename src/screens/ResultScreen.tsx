@@ -16,7 +16,7 @@ import type { Session } from '../core/types'
 
 export function ResultScreen() {
   const navigate = useNavigate()
-  const { profileId, calibration, hits, clearHits, photoUrl, photoSize } = useWizardStore()
+  const { profileId, calibration, hits, nextRound, photoUrl, photoSize } = useWizardStore()
   const profiles = useProfilesStore((s) => s.profiles)
   const [saved, setSaved] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
@@ -90,7 +90,7 @@ export function ResultScreen() {
     if (!mpiPx) missing.push(he.result.missingHits)
     return (
       <div className="screen">
-        <StepHeader title={he.result.title} backTo="/hits" />
+        <StepHeader title={he.result.title} backTo="/hits" showProfile />
         <div className="screen-body">
           <div className="card">
             <p style={{ fontWeight: 800, marginBlockEnd: 8 }}>{he.result.cannotCompute}</p>
@@ -138,11 +138,12 @@ export function ResultScreen() {
     return ok
   }
 
-  // Both actions save first, then roll straight into the next shooting round.
+  // Both actions save first, then roll straight into the next shooting round:
+  // schematic keeps its target; the camera path re-photographs the same sheet
+  // and reuses the saved aim point.
   const saveAndNextRound = () => {
     if (!persist()) return
-    clearHits()
-    navigate('/hits')
+    navigate(nextRound())
   }
 
   const { correction } = result
@@ -151,7 +152,7 @@ export function ResultScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.result.title} backTo="/hits" />
+      <StepHeader title={he.result.title} backTo="/hits" showProfile />
       <div className="screen-body">
         {allZeroed && <div className="zeroed-banner">🎯 {he.result.allZeroed}</div>}
         <div className="clicks-grid">
@@ -202,14 +203,6 @@ export function ResultScreen() {
         {saveFailed && (
           <p style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{he.result.saveFailed}</p>
         )}
-        <button
-          type="button"
-          className="big-button big-button--secondary"
-          disabled={imageState === 'pending'}
-          onClick={saveAndNextRound}
-        >
-          {he.result.again}
-        </button>
       </div>
       {showPhoto && markedImage && (
         <ImageModal src={markedImage} onClose={() => setShowPhoto(false)} />
