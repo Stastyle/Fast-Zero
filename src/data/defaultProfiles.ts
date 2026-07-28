@@ -10,7 +10,23 @@ const ESTIMATED = 'ערך משוער — מומלץ לאמת מול הוראות
 export const DEFAULT_PROFILES: SightProfile[] = [
   {
     id: 'mepro-reflex',
-    name: 'מפרו (רפלקס)',
+    name: 'מפרולייט M5',
+    kind: 'reflex',
+    builtIn: true,
+    elevationCmPerClick: 0.7,
+    windageCmPerClick: 0.7,
+    instructions: {
+      up: 'סובב את בורג הגובה בכיוון UP',
+      down: 'סובב את בורג הגובה נגד כיוון UP',
+      left: 'סובב את בורג הצד בכיוון L',
+      right: 'סובב את בורג הצד בכיוון R',
+    },
+    desiredImpactOffsetCm: { right: 0, up: 0 },
+    notes: ESTIMATED,
+  },
+  {
+    id: 'mepro-21',
+    name: 'מפרו 21',
     kind: 'reflex',
     builtIn: true,
     elevationCmPerClick: 0.7,
