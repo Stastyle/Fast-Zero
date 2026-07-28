@@ -163,7 +163,7 @@ export function ResultScreen() {
         </div>
         <div className="card">
           <div style={{ fontWeight: 700, marginBlockEnd: 6 }}>{he.result.diagramTitle}</div>
-          <SightDiagram kind={profile.kind} correction={correction} />
+          <SightDiagram profile={profile} correction={correction} />
         </div>
         <div className="card">
           <div>{he.result.offset(result.offsetCm.right, result.offsetCm.up)}</div>
