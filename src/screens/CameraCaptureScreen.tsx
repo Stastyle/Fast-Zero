@@ -60,6 +60,12 @@ export function CameraCaptureScreen() {
     const containerRect = video.getBoundingClientRect()
     const frameRect = frame.getBoundingClientRect()
     const crop = coverCropRect(containerRect, video.videoWidth, video.videoHeight, frameRect)
+    // A degenerate crop (e.g. zero-height frame) would sail through the flow
+    // and only break at the final computation — treat it as a camera failure.
+    if (!(crop.width >= 50) || !(crop.height >= 50)) {
+      setState('error')
+      return
+    }
 
     const canvas = document.createElement('canvas')
     canvas.width = Math.round(crop.width)

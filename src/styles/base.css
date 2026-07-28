@@ -289,9 +289,10 @@ body {
 
 .a4-frame {
   position: relative;
-  /* A4 portrait: 210 × 297 */
+  /* A4 portrait: 210 × 297. Width and height are clamped by the same pair of
+     constraints so the ratio holds without relying on aspect-ratio support. */
   width: min(78vw, 62vh * 0.7071);
-  aspect-ratio: 210 / 297;
+  height: min(78vw * 1.4143, 62vh);
   border: 3px solid #fff;
   border-radius: 4px;
   /* dim everything outside the frame */

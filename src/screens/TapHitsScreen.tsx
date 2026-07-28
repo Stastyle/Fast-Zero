@@ -6,7 +6,7 @@ import { StepHeader } from '../components/StepHeader'
 import { ZoomableStage } from '../components/ZoomableStage'
 import { MarkerLayer } from '../components/MarkerLayer'
 import { Magnifier } from '../components/Magnifier'
-import { computeMpiPx, distancePx } from '../core/geometry'
+import { computeMpiPx, distancePx, makeCmConverter } from '../core/geometry'
 import { SCHEMATIC } from '../data/schematic'
 import type { Vec2 } from '../core/types'
 
@@ -29,7 +29,7 @@ export function TapHitsScreen() {
     ? { width: SCHEMATIC.width, height: SCHEMATIC.height }
     : photoSize
 
-  const hasScale = calibration.pxPerCm !== null || calibration.homography !== null
+  const hasScale = makeCmConverter(calibration) !== null
   if (!imageUrl || !size || !hasScale || !calibration.aimPointPx) {
     return <Navigate to="/target" replace />
   }

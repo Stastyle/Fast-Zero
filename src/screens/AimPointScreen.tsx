@@ -6,6 +6,7 @@ import { StepHeader } from '../components/StepHeader'
 import { ZoomableStage } from '../components/ZoomableStage'
 import { MarkerLayer } from '../components/MarkerLayer'
 import { Magnifier } from '../components/Magnifier'
+import { makeCmConverter } from '../core/geometry'
 import type { Vec2 } from '../core/types'
 
 type Press = { image: Vec2; screen: Vec2 } | null
@@ -18,7 +19,9 @@ export function AimPointScreen() {
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
 
-  const hasScale = calibration.pxPerCm !== null || calibration.homography !== null
+  // Same validity rule as the result computation — a zero/NaN scale must not
+  // pass silently here only to dead-end at the result screen.
+  const hasScale = makeCmConverter(calibration) !== null
   if (!photoUrl || !photoSize || !hasScale) return <Navigate to="/target" replace />
 
   return (
