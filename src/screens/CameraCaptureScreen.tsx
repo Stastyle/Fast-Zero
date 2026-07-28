@@ -1,0 +1,147 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { he } from '../i18n/he'
+import { useWizardStore } from '../state/wizardStore'
+import { StepHeader } from '../components/StepHeader'
+import { A4_SHORT_CM } from '../core/homography'
+import { coverCropRect } from '../core/cameraCrop'
+import { preparePhoto } from './photoUtils'
+
+type CameraState = 'starting' | 'live' | 'error'
+
+export function CameraCaptureScreen() {
+  const navigate = useNavigate()
+  const { setPhoto, setPhotoWithScale } = useWizardStore()
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const fallbackRef = useRef<HTMLInputElement>(null)
+  const [state, setState] = useState<CameraState>('starting')
+
+  useEffect(() => {
+    let cancelled = false
+    async function start() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 2560 },
+            height: { ideal: 1440 },
+          },
+          audio: false,
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        const video = videoRef.current!
+        video.srcObject = stream
+        await video.play()
+        setState('live')
+      } catch {
+        if (!cancelled) setState('error')
+      }
+    }
+    start()
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+    }
+  }, [])
+
+  const capture = () => {
+    const video = videoRef.current
+    const frame = frameRef.current
+    if (!video || !frame || video.videoWidth === 0) return
+
+    // Map the on-screen A4 frame rect into native video pixels
+    // (video fills its container with object-fit: cover).
+    const containerRect = video.getBoundingClientRect()
+    const frameRect = frame.getBoundingClientRect()
+    const crop = coverCropRect(containerRect, video.videoWidth, video.videoHeight, frameRect)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(crop.width)
+    canvas.height = Math.round(crop.height)
+    canvas
+      .getContext('2d')!
+      .drawImage(
+        video,
+        crop.left,
+        crop.top,
+        crop.width,
+        crop.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      )
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+        // The crop equals the A4 page: its width is exactly 21cm.
+        const pxPerCm = canvas.width / A4_SHORT_CM
+        setPhotoWithScale(URL.createObjectURL(blob), canvas.width, canvas.height, pxPerCm)
+        navigate('/aim')
+      },
+      'image/jpeg',
+      0.9,
+    )
+  }
+
+  // No in-app camera (old iOS / permission denied): fall back to the native
+  // camera app; scale then comes from tapping the page corners.
+  const onFallbackFile = async (file: File | undefined) => {
+    if (!file) return
+    const { url, width, height } = await preparePhoto(file)
+    setPhoto(url, width, height)
+    navigate('/corners')
+  }
+
+  return (
+    <div className="screen">
+      <StepHeader title={he.camera.title} backTo="/target" />
+      {state !== 'error' ? (
+        <>
+          <div className="camera-stage">
+            <video ref={videoRef} playsInline muted autoPlay />
+            <div ref={frameRef} className="a4-frame" />
+            <div className="camera-hint">{he.camera.align}</div>
+            {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
+          </div>
+          <div className="bottom-bar">
+            <button
+              type="button"
+              className="big-button"
+              style={{ flex: 1 }}
+              disabled={state !== 'live'}
+              onClick={capture}
+            >
+              📷 {he.camera.capture}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="screen-body">
+          <p style={{ fontWeight: 700 }}>{he.camera.error}</p>
+          <input
+            ref={fallbackRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => onFallbackFile(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="big-button"
+            onClick={() => fallbackRef.current?.click()}
+          >
+            {he.camera.fallback}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

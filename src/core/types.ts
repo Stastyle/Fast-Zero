@@ -56,6 +56,8 @@ export interface CalibrationState {
   pointB: Vec2 | null
   realDistanceCm: number | null
   pxPerCm: number | null
+  /** px→page-cm homography from A4 corner marking; when set it wins over pxPerCm. */
+  homography: number[] | null
   aimPointPx: Vec2 | null
 }
 

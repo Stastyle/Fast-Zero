@@ -29,7 +29,8 @@ export function TapHitsScreen() {
     ? { width: SCHEMATIC.width, height: SCHEMATIC.height }
     : photoSize
 
-  if (!imageUrl || !size || !calibration.pxPerCm || !calibration.aimPointPx) {
+  const hasScale = calibration.pxPerCm !== null || calibration.homography !== null
+  if (!imageUrl || !size || !hasScale || !calibration.aimPointPx) {
     return <Navigate to="/target" replace />
   }
 
@@ -51,7 +52,7 @@ export function TapHitsScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/calibrate'} />
+      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} />
       <div style={{ padding: '8px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
         <span className="hint">{he.hits.instruction}</span>
       </div>

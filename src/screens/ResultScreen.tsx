@@ -5,7 +5,7 @@ import { useWizardStore } from '../state/wizardStore'
 import { useProfilesStore } from '../state/profilesStore'
 import { StepHeader } from '../components/StepHeader'
 import { ClicksCard } from '../components/ClicksCard'
-import { computeMpiPx, extremeSpreadPx, pxToCm } from '../core/geometry'
+import { computeMpiPx, extremeSpreadCm, makeCmConverter } from '../core/geometry'
 import { computeCorrection } from '../core/zeroing'
 import { appendSession } from '../data/sessions'
 import type { Session } from '../core/types'
@@ -18,20 +18,21 @@ export function ResultScreen() {
 
   const profile = profiles.find((p) => p.id === profileId) ?? null
   const mpiPx = computeMpiPx(hits)
-  const ready = profile && mpiPx && calibration.pxPerCm && calibration.aimPointPx
+  const toCm = makeCmConverter(calibration)
+  const ready = profile && mpiPx && toCm && calibration.aimPointPx
 
   const result = useMemo(() => {
     if (!ready) return null
-    const { pxPerCm, aimPointPx } = calibration
+    const { aimPointPx } = calibration
     const included = hits.filter((h) => !h.excluded)
-    const hitsCm = included.map((h) => pxToCm(h.posPx, aimPointPx!, pxPerCm!))
-    const mpiCm = pxToCm(mpiPx!, aimPointPx!, pxPerCm!)
+    const hitsCm = included.map((h) => toCm!(h.posPx, aimPointPx!))
+    const mpiCm = toCm!(mpiPx!, aimPointPx!)
     const correction = computeCorrection(mpiCm, profile!)
     const offsetCm = {
       right: mpiCm.right - profile!.desiredImpactOffsetCm.right,
       up: mpiCm.up - profile!.desiredImpactOffsetCm.up,
     }
-    const spreadCm = extremeSpreadPx(hits) / pxPerCm!
+    const spreadCm = extremeSpreadCm(hitsCm)
     return { hitsCm, mpiCm, offsetCm, correction, spreadCm, includedCount: included.length }
   }, [ready, hits, calibration, mpiPx, profile])
 
