@@ -439,6 +439,13 @@ body {
   justify-content: center;
 }
 
+/* Portrait page: shift the frame toward the inline-start so the side-mounted
+   shutter never covers the page's near edge. */
+.camera-stage--portrait {
+  justify-content: flex-start;
+  padding-inline-start: 12px;
+}
+
 .camera-stage video {
   position: absolute;
   inset: 0;
@@ -505,7 +512,7 @@ body {
 
 .camera-toggle {
   position: absolute;
-  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
   inset-inline: 0;
   display: flex;
   justify-content: center;
@@ -531,15 +538,12 @@ body {
   z-index: 2;
 }
 
-/* Shutter floats at mid-height on the screen edge — where the thumb rests
-   while the other hand steadies the phone over the target. */
+/* Shutter floats over the stage, thumb-reachable, and must never cover the
+   alignment frame's edges. */
 .shutter-button {
   position: absolute;
-  top: 50%;
-  inset-inline-end: 14px;
-  transform: translateY(-50%);
-  width: 96px;
-  height: 96px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   border: 6px solid #fff;
   background: #d81b1b;
@@ -548,8 +552,26 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-.shutter-button:active {
+/* Portrait page: side-mounted at mid-height (frame is shifted the other way) */
+.shutter-button--portrait {
+  top: 50%;
+  inset-inline-end: 8px;
+  transform: translateY(-50%);
+}
+
+.shutter-button--portrait:active {
   transform: translateY(-50%) scale(0.94);
+}
+
+/* Landscape page (short frame): centered in the empty area below it */
+.shutter-button--landscape {
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  inset-inline: 0;
+  margin-inline: auto;
+}
+
+.shutter-button--landscape:active {
+  transform: scale(0.94);
 }
 
 .shutter-button:disabled {

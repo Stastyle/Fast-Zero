@@ -21,6 +21,9 @@ export function CameraCaptureScreen() {
   const [orientation, setOrientation] = useState<PageOrientation>('portrait')
 
   useEffect(() => {
+    // The guard below redirects away without a profile — never prompt for
+    // camera permission on a screen the user will not see.
+    if (!profileId) return
     let cancelled = false
     async function start() {
       try {
@@ -50,7 +53,7 @@ export function CameraCaptureScreen() {
       cancelled = true
       streamRef.current?.getTracks().forEach((t) => t.stop())
     }
-  }, [])
+  }, [profileId])
 
   const capture = () => {
     const video = videoRef.current
@@ -119,7 +122,7 @@ export function CameraCaptureScreen() {
       <StepHeader title={he.camera.title} backTo="/target" />
       {state !== 'error' ? (
         <>
-          <div className="camera-stage">
+          <div className={`camera-stage camera-stage--${orientation}`}>
             <video ref={videoRef} playsInline muted autoPlay />
             <div ref={frameRef} className={`a4-frame a4-frame--${orientation}`} />
             <div className="camera-hint">{he.camera.align}</div>
@@ -142,7 +145,7 @@ export function CameraCaptureScreen() {
             </div>
             <button
               type="button"
-              className="shutter-button"
+              className={`shutter-button shutter-button--${orientation}`}
               aria-label={he.camera.capture}
               disabled={state !== 'live'}
               onClick={capture}

@@ -10,9 +10,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'],
       },
-      includeAssets: ['schematic-target.svg', 'icons/*.png'],
+      includeAssets: ['schematic-target.svg', 'icons/*.png', 'sights/*.jpg'],
       manifest: {
         name: 'איפוס מהיר',
         short_name: 'איפוס',

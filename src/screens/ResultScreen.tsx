@@ -127,7 +127,8 @@ export function ResultScreen() {
       hitsCm: result.hitsCm,
       mpiCm: result.mpiCm,
       offsetCm: result.offsetCm,
-      spreadCm: result.spreadCm,
+      // group size is undefined by definition for a single hit
+      ...(result.includedCount > 1 ? { spreadCm: result.spreadCm } : {}),
       correction: result.correction,
       ...(markedImage ? { imageDataUrl: markedImage } : {}),
     }
