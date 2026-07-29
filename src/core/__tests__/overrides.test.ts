@@ -54,10 +54,10 @@ describe('Meprolight defaults reflect the manufacturer specs', () => {
     expect(m5.windageCmPerClick).toBeCloseTo(0.36, 2)
   })
 
-  it('M16/M4 irons: 1 MOA per click = 0.73cm at 25m', () => {
+  it('M16/M4 irons: front post 1.25 MOA (0.91cm), windage 1 MOA (0.73cm) at 25m', () => {
     for (const id of ['m16a2-iron', 'm4-iron']) {
       const p = DEFAULT_PROFILES.find((x) => x.id === id)!
-      expect(p.elevationCmPerClick).toBeCloseTo(0.73, 2)
+      expect(p.elevationCmPerClick).toBeCloseTo(0.91, 2)
       expect(p.windageCmPerClick).toBeCloseTo(0.73, 2)
       expect(p.notes?.startsWith('לפי מפרט')).toBe(true)
     }
