@@ -1,6 +1,7 @@
 /** All user-facing Hebrew strings, centralized. */
 export const he = {
   appName: 'איפוס מהיר',
+  footer: 'כל הזכויות שמורות ל: סטס מ. | גדחה״ן 710 | 2026',
 
   home: {
     tagline: 'מחשבון קליקים לאיפוס על מטרת 25 מ׳',
