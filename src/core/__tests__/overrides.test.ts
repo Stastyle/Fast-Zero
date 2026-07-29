@@ -46,12 +46,38 @@ describe('stripRedundantOverride', () => {
   })
 })
 
-describe('M5 default reflects the manufacturer spec', () => {
-  it('0.5 MOA per click ≈ 0.36cm at 25m', () => {
+describe('Meprolight defaults reflect the manufacturer specs', () => {
+  it('M5: 0.5 MOA per click ≈ 0.36cm at 25m', () => {
     const m5 = DEFAULT_PROFILES.find((p) => p.id === 'mepro-reflex')!
     expect(m5.name).toBe('מפרולייט M5')
     expect(m5.elevationCmPerClick).toBeCloseTo(0.36, 2)
     expect(m5.windageCmPerClick).toBeCloseTo(0.36, 2)
+  })
+
+  it('M21: 0.5 mrad per click = 1.25cm at 25m', () => {
+    const m21 = DEFAULT_PROFILES.find((p) => p.id === 'mepro-21')!
+    expect(m21.name).toBe('מפרולייט M21')
+    expect(m21.elevationCmPerClick).toBeCloseTo(1.25, 2)
+    expect(m21.windageCmPerClick).toBeCloseTo(1.25, 2)
+    expect(m21.notes?.startsWith('לפי מפרט')).toBe(true)
+  })
+})
+
+describe('M21 legacy override cleanup', () => {
+  it('drops the pre-rename name and old estimated clicks', () => {
+    expect(
+      stripLegacyOverride('mepro-21', {
+        name: 'מפרו 21',
+        elevationCmPerClick: 0.7,
+        windageCmPerClick: 0.7,
+      }),
+    ).toEqual({})
+  })
+
+  it('keeps deliberate custom values', () => {
+    expect(stripLegacyOverride('mepro-21', { elevationCmPerClick: 1.0 })).toEqual({
+      elevationCmPerClick: 1.0,
+    })
   })
 })
 

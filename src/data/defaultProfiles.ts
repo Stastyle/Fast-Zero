@@ -29,6 +29,19 @@ export const LEGACY_DEFAULT_VALUES: Record<string, Partial<SightProfile>[]> = {
     { elevationCmPerClick: 0.7, windageCmPerClick: 0.7 },
     { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
   ],
+  'mepro-21': [
+    { name: 'מפרו 21' },
+    { elevationCmPerClick: 0.7, windageCmPerClick: 0.7 },
+    {
+      notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת',
+      instructions: {
+        up: 'סובב את בורג הגובה בכיוון UP',
+        down: 'סובב את בורג הגובה נגד כיוון UP',
+        left: 'סובב את בורג הצד בכיוון L',
+        right: 'סובב את בורג הצד בכיוון R',
+      },
+    },
+  ],
 }
 
 function stripMatching(
@@ -98,19 +111,20 @@ export const DEFAULT_PROFILES: SightProfile[] = [
   },
   {
     id: 'mepro-21',
-    name: 'מפרו 21',
+    name: 'מפרולייט M21',
     kind: 'reflex',
     builtIn: true,
-    elevationCmPerClick: 0.7,
-    windageCmPerClick: 0.7,
+    // Mepro 21 manual: 1 click = 0.5 mrad (≈1.7 MOA) = 1.25cm at 25m
+    elevationCmPerClick: 1.25,
+    windageCmPerClick: 1.25,
     instructions: {
       up: 'סובב את בורג הגובה בכיוון UP',
       down: 'סובב את בורג הגובה נגד כיוון UP',
-      left: 'סובב את בורג הצד בכיוון L',
-      right: 'סובב את בורג הצד בכיוון R',
+      left: 'סובב את בורג הצד נגד כיוון R',
+      right: 'סובב את בורג הצד בכיוון R (עם כיוון השעון)',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט היצרן: 0.5 מיל (≈1.7 MOA) לקליק = 1.25 ס״מ ב־25 מ׳',
   },
   {
     id: 'm16a2-iron',
