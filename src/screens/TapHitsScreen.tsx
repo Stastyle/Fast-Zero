@@ -6,7 +6,7 @@ import { StepHeader } from '../components/StepHeader'
 import { ZoomableStage } from '../components/ZoomableStage'
 import { MarkerLayer } from '../components/MarkerLayer'
 import { Magnifier } from '../components/Magnifier'
-import { computeMpiPx, distancePx, makeCmConverter } from '../core/geometry'
+import { computeMpiPx, distancePx, extremeSpreadCm, makeCmConverter } from '../core/geometry'
 import { SCHEMATIC } from '../data/schematic'
 import type { Vec2 } from '../core/types'
 
@@ -39,8 +39,8 @@ export function TapHitsScreen() {
     : photoSize
 
   if (!profileId) return <Navigate to="/profiles" replace />
-  const hasScale = makeCmConverter(calibration) !== null
-  if (!imageUrl || !size || !hasScale || !calibration.aimPointPx) {
+  const toCm = makeCmConverter(calibration)
+  if (!imageUrl || !size || !toCm || !calibration.aimPointPx) {
     return <Navigate to="/target" replace />
   }
 
@@ -48,6 +48,11 @@ export function TapHitsScreen() {
   const included = hits.filter((h) => !h.excluded)
   const excluded = hits.length - included.length
   const selectedHit = hits.find((h) => h.id === selectedHitId) ?? null
+  // Live group size — updates with every tap, not only after computing.
+  const spreadCm =
+    included.length > 1
+      ? extremeSpreadCm(included.map((h) => toCm(h.posPx, calibration.aimPointPx!)))
+      : null
 
   const onTap = (p: Vec2) => {
     // A tap near an existing marker selects it (inline actions below); otherwise adds a hit.
@@ -126,6 +131,9 @@ export function TapHitsScreen() {
             <span className="action-row-label">
               <strong>{he.hits.count(hits.length)}</strong>
               {excluded > 0 && ` · ${he.hits.excludedCount(excluded)}`}
+              {spreadCm !== null && (
+                <strong> · {he.result.spread(spreadCm.toFixed(1))}</strong>
+              )}
               {included.length > 0 && included.length < 3 && (
                 <span className="action-row-warning"> · {he.hits.fewHitsWarning}</span>
               )}
