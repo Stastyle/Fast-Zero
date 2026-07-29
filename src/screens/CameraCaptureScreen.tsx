@@ -55,6 +55,22 @@ export function CameraCaptureScreen() {
     }
   }, [profileId])
 
+  // Hardware volume keys reach the page only on some Android devices and
+  // Bluetooth camera remotes (which emit volume/enter key events); iOS never
+  // delivers them to web content. Best-effort — the on-screen shutter is primary.
+  const captureRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (state !== 'live') return
+    const onKey = (e: KeyboardEvent) => {
+      if (['AudioVolumeUp', 'AudioVolumeDown', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault()
+        captureRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [state])
+
   const capture = () => {
     const video = videoRef.current
     const frame = frameRef.current
@@ -109,6 +125,8 @@ export function CameraCaptureScreen() {
     )
   }
 
+  captureRef.current = capture
+
   // No in-app camera (old iOS / permission denied): fall back to the native
   // camera app; scale then comes from tapping the page corners.
   const onFallbackFile = async (file: File | undefined) => {
@@ -129,10 +147,13 @@ export function CameraCaptureScreen() {
       <StepHeader title={he.camera.title} backTo="/target" showProfile />
       {state !== 'error' ? (
         <>
-          <div className={`camera-stage camera-stage--${orientation}`}>
+          <div className="camera-stage">
             <video ref={videoRef} playsInline muted autoPlay />
             <div ref={frameRef} className={`a4-frame a4-frame--${orientation}`} />
-            <div className="camera-hint">{he.camera.align}</div>
+            <div className="camera-hint">
+              {he.camera.align}
+              <small>{he.camera.volumeHint}</small>
+            </div>
             {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
             <div className="camera-toggle">
               <button
@@ -150,9 +171,11 @@ export function CameraCaptureScreen() {
                 {he.camera.landscape}
               </button>
             </div>
+          </div>
+          <div className="shutter-bar">
             <button
               type="button"
-              className={`shutter-button shutter-button--${orientation}`}
+              className="shutter-button"
               aria-label={he.camera.capture}
               disabled={state !== 'live'}
               onClick={capture}
