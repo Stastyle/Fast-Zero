@@ -21,29 +21,52 @@ body {
   overscroll-behavior: none;
 }
 
-.screen {
+/* Shell fills the real visible viewport; screens flex above the global footer */
+.app-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
-  /* fill the real visible viewport on mobile (URL bar collapse, notch) */
   height: 100dvh;
   width: 100%;
   padding-block-start: env(safe-area-inset-top);
 }
 
+.app-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-fg-soft);
+  background: var(--color-surface);
+  box-shadow: 0 -1px 0 var(--color-border);
+  padding: 4px 8px;
+  padding-block-end: calc(4px + env(safe-area-inset-bottom));
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 /* Cap line length only on genuinely wide screens (tablet/desktop) */
 @media (min-width: 760px) {
-  .screen {
+  .app-shell {
     max-width: 680px;
     margin-inline: auto;
   }
+}
+
+.app-logo {
+  display: block;
+  width: 100%;
 }
 
 .screen-body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space);
-  padding-block-end: calc(var(--space) + env(safe-area-inset-bottom));
+  padding-block-end: var(--space);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -184,7 +207,7 @@ body {
   flex-direction: column;
   gap: 10px;
   padding: 12px var(--space);
-  padding-block-end: calc(12px + env(safe-area-inset-bottom));
+  padding-block-end: 12px;
   background: var(--color-surface);
   box-shadow: 0 -1px 0 var(--color-border);
 }
@@ -527,7 +550,7 @@ body {
 
 .camera-toggle {
   position: absolute;
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  bottom: 14px;
   inset-inline: 0;
   display: flex;
   justify-content: center;
@@ -559,7 +582,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 10px 16px;
-  padding-block-end: calc(10px + env(safe-area-inset-bottom));
+  padding-block-end: 10px;
   background: #000;
 }
 

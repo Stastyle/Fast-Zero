@@ -11,11 +11,14 @@ export function HomeScreen() {
 
   return (
     <div className="screen">
-      <div className="home-hero">
-        <div className="logo">🎯</div>
-        <h1>{he.appName}</h1>
-        <p className="tagline">{he.home.tagline}</p>
-      </div>
+      <img
+        className="app-logo"
+        src={`${import.meta.env.BASE_URL}logo.jpg`}
+        alt={he.appName}
+      />
+      <p className="tagline" style={{ textAlign: 'center', padding: '8px 16px 0' }}>
+        {he.home.tagline}
+      </p>
       <div className="screen-body">
         <button
           type="button"

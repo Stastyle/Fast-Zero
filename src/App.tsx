@@ -1,4 +1,4 @@
-import { createHashRouter, RouterProvider, useRouteError } from 'react-router-dom'
+import { createHashRouter, Outlet, RouterProvider, useRouteError } from 'react-router-dom'
 import { he } from './i18n/he'
 import { HomeScreen } from './screens/HomeScreen'
 import { ProfileSelectScreen } from './screens/ProfileSelectScreen'
@@ -38,9 +38,19 @@ function ErrorScreen() {
   )
 }
 
+function Layout() {
+  return (
+    <div className="app-shell">
+      <Outlet />
+      <footer className="app-footer">{he.footer}</footer>
+    </div>
+  )
+}
+
 const router = createHashRouter([
   {
     path: '/',
+    element: <Layout />,
     errorElement: <ErrorScreen />,
     children: [
       { index: true, element: <HomeScreen /> },
