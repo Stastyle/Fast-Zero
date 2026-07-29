@@ -103,6 +103,8 @@ export interface Session {
   mpiCm: CmVec
   /** MPI minus desired impact point. */
   offsetCm: CmVec
+  /** Largest distance between two included hits ("group size"), in cm. */
+  spreadCm?: number
   correction: Correction
   notes?: string
   /** JPEG data URL of the marked target photo. Stripped from older sessions to bound storage. */

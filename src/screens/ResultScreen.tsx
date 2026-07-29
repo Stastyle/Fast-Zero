@@ -16,7 +16,7 @@ import type { Session } from '../core/types'
 
 export function ResultScreen() {
   const navigate = useNavigate()
-  const { profileId, calibration, hits, clearHits, photoUrl, photoSize } = useWizardStore()
+  const { profileId, calibration, hits, nextRound, photoUrl, photoSize } = useWizardStore()
   const profiles = useProfilesStore((s) => s.profiles)
   const [saved, setSaved] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
@@ -90,7 +90,7 @@ export function ResultScreen() {
     if (!mpiPx) missing.push(he.result.missingHits)
     return (
       <div className="screen">
-        <StepHeader title={he.result.title} backTo="/hits" />
+        <StepHeader title={he.result.title} backTo="/hits" showProfile />
         <div className="screen-body">
           <div className="card">
             <p style={{ fontWeight: 800, marginBlockEnd: 8 }}>{he.result.cannotCompute}</p>
@@ -108,7 +108,9 @@ export function ResultScreen() {
     )
   }
 
-  const save = () => {
+  /** Persist once; returns whether the session is (now) saved. */
+  const persist = (): boolean => {
+    if (saved) return true
     setSaveFailed(false)
     const session: Session = {
       id: `s-${Date.now()}`,
@@ -125,11 +127,23 @@ export function ResultScreen() {
       hitsCm: result.hitsCm,
       mpiCm: result.mpiCm,
       offsetCm: result.offsetCm,
+      // group size is undefined by definition for a single hit
+      ...(result.includedCount > 1 ? { spreadCm: result.spreadCm } : {}),
       correction: result.correction,
       ...(markedImage ? { imageDataUrl: markedImage } : {}),
     }
-    if (appendSession(session)) setSaved(true)
+    const ok = appendSession(session)
+    if (ok) setSaved(true)
     else setSaveFailed(true)
+    return ok
+  }
+
+  // Both actions save first, then roll straight into the next shooting round:
+  // schematic keeps its target; the camera path re-photographs the same sheet
+  // and reuses the saved aim point.
+  const saveAndNextRound = () => {
+    if (!persist()) return
+    navigate(nextRound())
   }
 
   const { correction } = result
@@ -138,7 +152,7 @@ export function ResultScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.result.title} backTo="/hits" />
+      <StepHeader title={he.result.title} backTo="/hits" showProfile />
       <div className="screen-body">
         {allZeroed && <div className="zeroed-banner">🎯 {he.result.allZeroed}</div>}
         <div className="clicks-grid">
@@ -181,28 +195,14 @@ export function ResultScreen() {
         <button
           type="button"
           className="big-button"
-          disabled={saved || imageState === 'pending'}
-          onClick={save}
+          disabled={imageState === 'pending'}
+          onClick={saveAndNextRound}
         >
-          {saved
-            ? `✓ ${he.result.saved}`
-            : imageState === 'pending'
-              ? he.result.saving
-              : he.result.save}
+          {imageState === 'pending' ? he.result.saving : he.result.save}
         </button>
         {saveFailed && (
           <p style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{he.result.saveFailed}</p>
         )}
-        <button
-          type="button"
-          className="big-button big-button--secondary"
-          onClick={() => {
-            clearHits()
-            navigate('/hits')
-          }}
-        >
-          {he.result.again}
-        </button>
       </div>
       {showPhoto && markedImage && (
         <ImageModal src={markedImage} onClose={() => setShowPhoto(false)} />

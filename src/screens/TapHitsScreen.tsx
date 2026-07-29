@@ -17,8 +17,17 @@ const MARKER_TAP_RADIUS = 16
 
 export function TapHitsScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, calibration, hits, addHit, toggleExcluded, removeHit, undoLastHit } =
-    useWizardStore()
+  const {
+    photoUrl,
+    photoSize,
+    calibration,
+    hits,
+    addHit,
+    toggleExcluded,
+    removeHit,
+    undoLastHit,
+    profileId,
+  } = useWizardStore()
   const [selectedHitId, setSelectedHitId] = useState<string | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
@@ -29,6 +38,7 @@ export function TapHitsScreen() {
     ? { width: SCHEMATIC.width, height: SCHEMATIC.height }
     : photoSize
 
+  if (!profileId) return <Navigate to="/profiles" replace />
   const hasScale = makeCmConverter(calibration) !== null
   if (!imageUrl || !size || !hasScale || !calibration.aimPointPx) {
     return <Navigate to="/target" replace />
@@ -52,7 +62,7 @@ export function TapHitsScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} />
+      <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} showProfile />
       <div className="screen-note">{he.hits.instruction}</div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
         <ZoomableStage

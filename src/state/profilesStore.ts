@@ -7,7 +7,8 @@ import {
 } from '../data/defaultProfiles'
 import { loadStore, saveStore } from '../data/storage'
 
-const LEGACY_CLEANUP_KEY = 'fastzero.migration.legacy-overrides-1'
+// Bumped when LEGACY_DEFAULT_VALUES grows so the (idempotent) cleanup re-runs.
+const LEGACY_CLEANUP_KEY = 'fastzero.migration.legacy-overrides-4'
 
 /**
  * One-time cleanup: drop override fields frozen from old shipped defaults

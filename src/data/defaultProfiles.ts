@@ -29,6 +29,31 @@ export const LEGACY_DEFAULT_VALUES: Record<string, Partial<SightProfile>[]> = {
     { elevationCmPerClick: 0.7, windageCmPerClick: 0.7 },
     { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
   ],
+  'mepro-21': [
+    { name: 'מפרו 21' },
+    { elevationCmPerClick: 0.7, windageCmPerClick: 0.7 },
+    {
+      notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת',
+      instructions: {
+        up: 'סובב את בורג הגובה בכיוון UP',
+        down: 'סובב את בורג הגובה נגד כיוון UP',
+        left: 'סובב את בורג הצד בכיוון L',
+        right: 'סובב את בורג הצד בכיוון R',
+      },
+    },
+  ],
+  'm16a2-iron': [
+    { elevationCmPerClick: 0.8, windageCmPerClick: 0.9 },
+    { elevationCmPerClick: 0.73, windageCmPerClick: 0.73 },
+    { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
+    { notes: 'לפי מפרט: 1 MOA לקליק = 0.73 ס״מ ב־25 מ׳' },
+  ],
+  'm4-iron': [
+    { elevationCmPerClick: 0.9, windageCmPerClick: 0.4 },
+    { elevationCmPerClick: 0.73, windageCmPerClick: 0.73 },
+    { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
+    { notes: 'לפי מפרט: 1 MOA לקליק = 0.73 ס״מ ב־25 מ׳' },
+  ],
 }
 
 function stripMatching(
@@ -98,27 +123,29 @@ export const DEFAULT_PROFILES: SightProfile[] = [
   },
   {
     id: 'mepro-21',
-    name: 'מפרו 21',
+    name: 'מפרולייט M21',
     kind: 'reflex',
     builtIn: true,
-    elevationCmPerClick: 0.7,
-    windageCmPerClick: 0.7,
+    // Mepro 21 manual: 1 click = 0.5 mrad (≈1.7 MOA) = 1.25cm at 25m
+    elevationCmPerClick: 1.25,
+    windageCmPerClick: 1.25,
     instructions: {
       up: 'סובב את בורג הגובה בכיוון UP',
       down: 'סובב את בורג הגובה נגד כיוון UP',
-      left: 'סובב את בורג הצד בכיוון L',
-      right: 'סובב את בורג הצד בכיוון R',
+      left: 'סובב את בורג הצד נגד כיוון R',
+      right: 'סובב את בורג הצד בכיוון R (עם כיוון השעון)',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט היצרן: 0.5 מיל (≈1.7 MOA) לקליק = 1.25 ס״מ ב־25 מ׳',
   },
   {
     id: 'm16a2-iron',
     name: 'M16 כוונות ברזל',
     kind: 'iron',
     builtIn: true,
-    elevationCmPerClick: 0.8,
-    windageCmPerClick: 0.9,
+    // front post: 1.25 MOA per click = 0.91cm at 25m; rear windage: 1 MOA = 0.73cm
+    elevationCmPerClick: 0.91,
+    windageCmPerClick: 0.73,
     instructions: {
       up: 'הברג את חזית הכוונת פנימה (עם כיוון החץ)',
       down: 'הברג את חזית הכוונת החוצה (נגד כיוון החץ)',
@@ -126,15 +153,16 @@ export const DEFAULT_PROFILES: SightProfile[] = [
       right: 'סובב את תוף הצד האחורי ימינה',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט: חזית 1.25 MOA לקליק = 0.91 ס״מ · צד 1 MOA = 0.73 ס״מ (ב־25 מ׳)',
   },
   {
     id: 'm4-iron',
     name: 'M4 כוונות ברזל',
     kind: 'iron',
     builtIn: true,
-    elevationCmPerClick: 0.9,
-    windageCmPerClick: 0.4,
+    // front post: 1.25 MOA per click = 0.91cm at 25m; rear windage: 1 MOA = 0.73cm
+    elevationCmPerClick: 0.91,
+    windageCmPerClick: 0.73,
     instructions: {
       up: 'הברג את חזית הכוונת פנימה (עם כיוון החץ)',
       down: 'הברג את חזית הכוונת החוצה (נגד כיוון החץ)',
@@ -142,7 +170,7 @@ export const DEFAULT_PROFILES: SightProfile[] = [
       right: 'סובב את בורג הצד בכוונת האחורית ימינה',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט: חזית 1.25 MOA לקליק = 0.91 ס״מ · צד 1 MOA = 0.73 ס״מ (ב־25 מ׳)',
   },
   {
     id: 'tavor-iron',

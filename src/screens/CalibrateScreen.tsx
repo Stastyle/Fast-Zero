@@ -44,7 +44,7 @@ export function CalibrateScreen() {
 
   return (
     <div className="screen">
-      <StepHeader title={he.calibrate.title} backTo="/corners" />
+      <StepHeader title={he.calibrate.title} backTo="/corners" showProfile />
       <div style={{ padding: '10px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
         <strong>{he.calibrate.stepPoints}</strong>
         {error && <div style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{error}</div>}
