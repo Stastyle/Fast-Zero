@@ -42,6 +42,14 @@ export const LEGACY_DEFAULT_VALUES: Record<string, Partial<SightProfile>[]> = {
       },
     },
   ],
+  'm16a2-iron': [
+    { elevationCmPerClick: 0.8, windageCmPerClick: 0.9 },
+    { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
+  ],
+  'm4-iron': [
+    { elevationCmPerClick: 0.9, windageCmPerClick: 0.4 },
+    { notes: 'ערך משוער — מומלץ לאמת מול הוראות הכוונת' },
+  ],
 }
 
 function stripMatching(
@@ -131,8 +139,9 @@ export const DEFAULT_PROFILES: SightProfile[] = [
     name: 'M16 כוונות ברזל',
     kind: 'iron',
     builtIn: true,
-    elevationCmPerClick: 0.8,
-    windageCmPerClick: 0.9,
+    // 1 MOA per click = 0.73cm at 25m
+    elevationCmPerClick: 0.73,
+    windageCmPerClick: 0.73,
     instructions: {
       up: 'הברג את חזית הכוונת פנימה (עם כיוון החץ)',
       down: 'הברג את חזית הכוונת החוצה (נגד כיוון החץ)',
@@ -140,15 +149,16 @@ export const DEFAULT_PROFILES: SightProfile[] = [
       right: 'סובב את תוף הצד האחורי ימינה',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט: 1 MOA לקליק = 0.73 ס״מ ב־25 מ׳',
   },
   {
     id: 'm4-iron',
     name: 'M4 כוונות ברזל',
     kind: 'iron',
     builtIn: true,
-    elevationCmPerClick: 0.9,
-    windageCmPerClick: 0.4,
+    // 1 MOA per click = 0.73cm at 25m
+    elevationCmPerClick: 0.73,
+    windageCmPerClick: 0.73,
     instructions: {
       up: 'הברג את חזית הכוונת פנימה (עם כיוון החץ)',
       down: 'הברג את חזית הכוונת החוצה (נגד כיוון החץ)',
@@ -156,7 +166,7 @@ export const DEFAULT_PROFILES: SightProfile[] = [
       right: 'סובב את בורג הצד בכוונת האחורית ימינה',
     },
     desiredImpactOffsetCm: { right: 0, up: 0 },
-    notes: ESTIMATED,
+    notes: 'לפי מפרט: 1 MOA לקליק = 0.73 ס״מ ב־25 מ׳',
   },
   {
     id: 'tavor-iron',
