@@ -485,6 +485,24 @@ body {
   object-fit: cover;
 }
 
+/* Live page-boundary detection: sits above the video but below the A4 frame,
+   so the frame's dimming shadow also dims the overlay outside the frame. */
+.page-detect-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.page-detect-overlay polygon {
+  fill: var(--color-page-detect);
+  fill-opacity: 0.14;
+  stroke: var(--color-page-detect);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
 /* A4 ratio via matched width/height clamps (no aspect-ratio dependency).
    Portrait: 210×297. Landscape: 297×210.
    PRECISION: the white line is an OUTLINE (drawn outside the box), so the
@@ -513,7 +531,7 @@ body {
   position: absolute;
   width: 26px;
   height: 26px;
-  border: 5px solid #ffd60a;
+  border: 5px solid var(--color-page-detect);
 }
 
 .a4-frame::before {

@@ -5,10 +5,19 @@ import { useWizardStore } from '../state/wizardStore'
 import { StepHeader } from '../components/StepHeader'
 import { A4_LONG_CM, A4_SHORT_CM } from '../core/homography'
 import { coverCropRect } from '../core/cameraCrop'
+import { detectPage, QuadSmoother } from '../core/pageDetect'
+import type { Vec2 } from '../core/types'
 import { preparePhoto } from './photoUtils'
 
 type CameraState = 'starting' | 'live' | 'error'
 type PageOrientation = 'portrait' | 'landscape'
+
+/** Width of the downscaled frame the detector runs on (CPU stays negligible). */
+const DETECT_WIDTH = 192
+/** ~6–7 detections per second — plenty for a hand-held preview. */
+const DETECT_INTERVAL_MS = 150
+/** Below this the overlay hides rather than showing a shaky guess. */
+const MIN_OVERLAY_CONFIDENCE = 0.35
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
@@ -19,6 +28,8 @@ export function CameraCaptureScreen() {
   const fallbackRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<CameraState>('starting')
   const [orientation, setOrientation] = useState<PageOrientation>('portrait')
+  /** Detected page quad in on-screen (container) pixels, or null → no overlay. */
+  const [pageQuad, setPageQuad] = useState<Vec2[] | null>(null)
 
   useEffect(() => {
     // The guard below redirects away without a profile — never prompt for
@@ -54,6 +65,64 @@ export function CameraCaptureScreen() {
       streamRef.current?.getTracks().forEach((t) => t.stop())
     }
   }, [profileId])
+
+  // Live page-boundary detection: a few times per second, downscale the video
+  // frame, find the bright A4 quad and map it to on-screen pixels for the
+  // overlay. Interval (not rAF) keeps CPU bounded; QuadSmoother removes both
+  // jitter and single-frame flicker.
+  useEffect(() => {
+    if (state !== 'live') return
+    const video = videoRef.current
+    if (!video) return
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+    const smoother = new QuadSmoother()
+    const tick = () => {
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      if (!vw || !vh) return
+      const dw = DETECT_WIDTH
+      const dh = Math.max(16, Math.round((vh / vw) * dw))
+      if (canvas.width !== dw || canvas.height !== dh) {
+        canvas.width = dw
+        canvas.height = dh
+      }
+      let detected
+      try {
+        ctx.drawImage(video, 0, 0, dw, dh)
+        detected = detectPage(ctx.getImageData(0, 0, dw, dh))
+      } catch {
+        detected = null // e.g. video not ready yet
+      }
+      const quad = smoother.push(detected)
+      if (!quad || quad.confidence < MIN_OVERLAY_CONFIDENCE) {
+        setPageQuad(null)
+        return
+      }
+      // detection px → video px → displayed px (video uses object-fit: cover,
+      // same geometry coverCropRect inverts for the capture crop).
+      const rect = video.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) {
+        setPageQuad(null)
+        return
+      }
+      const scale = Math.max(rect.width / vw, rect.height / vh)
+      const offsetX = (vw * scale - rect.width) / 2
+      const offsetY = (vh * scale - rect.height) / 2
+      setPageQuad(
+        quad.corners.map((p) => ({
+          x: ((p.x * vw) / dw) * scale - offsetX,
+          y: ((p.y * vh) / dh) * scale - offsetY,
+        })),
+      )
+    }
+    const id = window.setInterval(tick, DETECT_INTERVAL_MS)
+    return () => {
+      window.clearInterval(id)
+      setPageQuad(null)
+    }
+  }, [state])
 
   // Hardware volume keys reach the page only on some Android devices and
   // Bluetooth camera remotes (which emit volume/enter key events); iOS never
@@ -132,8 +201,9 @@ export function CameraCaptureScreen() {
   const onFallbackFile = async (file: File | undefined) => {
     if (!file) return
     try {
-      const { url, width, height } = await preparePhoto(file)
-      setPhoto(url, width, height)
+      const { url, width, height, pageCorners } = await preparePhoto(file)
+      // Detected page corners pre-fill the corners screen (user can adjust).
+      setPhoto(url, width, height, pageCorners)
       navigate('/corners')
     } catch {
       setState('error')
@@ -149,6 +219,11 @@ export function CameraCaptureScreen() {
         <>
           <div className="camera-stage">
             <video ref={videoRef} playsInline muted autoPlay />
+            {pageQuad && (
+              <svg className="page-detect-overlay" aria-hidden="true">
+                <polygon points={pageQuad.map((p) => `${p.x},${p.y}`).join(' ')} />
+              </svg>
+            )}
             <div ref={frameRef} className={`a4-frame a4-frame--${orientation}`} />
             <div className="camera-hint">
               {he.camera.align}
