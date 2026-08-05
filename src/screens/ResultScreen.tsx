@@ -6,6 +6,7 @@ import { useProfilesStore } from '../state/profilesStore'
 import { StepHeader } from '../components/StepHeader'
 import { ClicksCard } from '../components/ClicksCard'
 import { SightDiagram } from '../components/SightDiagram'
+import { SHOW_SIGHT_AIM_GUIDE } from '../featureFlags'
 import { ImageModal } from '../components/ImageModal'
 import { computeMpiPx, extremeSpreadCm, makeCmConverter } from '../core/geometry'
 import { computeCorrection } from '../core/zeroing'
@@ -175,10 +176,14 @@ export function ResultScreen() {
             }
           />
         </div>
-        <div className="card">
-          <div style={{ fontWeight: 700, marginBlockEnd: 6 }}>{he.result.diagramTitle}</div>
-          <SightDiagram profile={profile} correction={correction} />
-        </div>
+        {/* Sight-image aim guide — temporarily hidden per product decision;
+            flip SHOW_SIGHT_AIM_GUIDE in src/featureFlags.ts to bring it back. */}
+        {SHOW_SIGHT_AIM_GUIDE && (
+          <div className="card">
+            <div style={{ fontWeight: 700, marginBlockEnd: 6 }}>{he.result.diagramTitle}</div>
+            <SightDiagram profile={profile} correction={correction} />
+          </div>
+        )}
         <div className="card">
           <div>{he.result.offset(result.offsetCm.right, result.offsetCm.up)}</div>
           {result.includedCount > 1 && <div>{he.result.spread(result.spreadCm.toFixed(1))}</div>}
