@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useProfilesStore } from '../state/profilesStore'
+import { duplicateProfile } from '../data/defaultProfiles'
 import { StepHeader } from '../components/StepHeader'
 import type { SightKind, SightProfile } from '../core/types'
 
@@ -20,8 +21,12 @@ const BLANK: Omit<SightProfile, 'id'> = {
   desiredImpactOffsetCm: { right: 0, up: 0 },
 }
 
-/** Built-in profiles are read-only: show every setting, allow none to change. */
+/**
+ * Built-in profiles are read-only: show every setting, allow none to change.
+ * "שכפל וערוך" opens the new-profile form pre-filled with an editable copy.
+ */
 function ProfileViewScreen({ profile }: { profile: SightProfile }) {
+  const navigate = useNavigate()
   const rows: Array<[string, string]> = [
     [he.profiles.name, profile.name],
     [he.profiles.kind, profile.kind === 'reflex' ? he.profiles.reflex : he.profiles.iron],
@@ -51,6 +56,13 @@ function ProfileViewScreen({ profile }: { profile: SightProfile }) {
             </div>
           ))}
         </div>
+        <button
+          type="button"
+          className="big-button"
+          onClick={() => navigate(`/profiles/new?copyOf=${profile.id}`)}
+        >
+          {he.profiles.duplicate}
+        </button>
       </div>
     </div>
   )
@@ -59,12 +71,17 @@ function ProfileViewScreen({ profile }: { profile: SightProfile }) {
 export function ProfileEditScreen() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const { profiles, updateProfile, addProfile, deleteProfile } = useProfilesStore()
   const existing = id ? profiles.find((p) => p.id === id) : undefined
   const isNew = !existing
 
+  // "שכפל וערוך" from a built-in profile: pre-fill the new-profile form with a copy.
+  const copyOf = searchParams.get('copyOf')
+  const copySource = isNew && copyOf ? profiles.find((p) => p.id === copyOf) : undefined
+
   const [form, setForm] = useState(() => {
-    const src = existing ?? BLANK
+    const src = existing ?? (copySource ? duplicateProfile(copySource) : BLANK)
     return {
       name: src.name,
       kind: src.kind,
@@ -106,7 +123,8 @@ export function ProfileEditScreen() {
       },
     }
     if (isNew) {
-      addProfile({ ...BLANK, ...patch, id: `custom-${Date.now()}` })
+      const base = copySource ? duplicateProfile(copySource) : BLANK
+      addProfile({ ...base, ...patch, id: `custom-${Date.now()}` })
     } else {
       updateProfile(existing.id, patch)
     }

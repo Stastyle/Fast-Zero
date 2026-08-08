@@ -98,9 +98,31 @@ export function stripLegacyOverride(
   return cleaned
 }
 
+/** Suffix appended to the name of a duplicated profile. */
+export const COPY_SUFFIX = ' (עותק)'
+
+/**
+ * Deep-copy a profile into an editable custom profile (no id — the caller
+ * assigns one at save time). The name gets COPY_SUFFIX, builtIn is cleared,
+ * and notes are dropped: a "לפי מפרט" note would be misleading once the user
+ * edits the copied values.
+ */
+export function duplicateProfile(source: SightProfile): Omit<SightProfile, 'id'> {
+  const { id: _id, notes: _notes, ...rest } = source
+  return {
+    ...rest,
+    name: `${source.name}${COPY_SUFFIX}`,
+    builtIn: false,
+    instructions: { ...source.instructions },
+    desiredImpactOffsetCm: { ...source.desiredImpactOffsetCm },
+    ...(source.turns ? { turns: { ...source.turns } } : {}),
+  }
+}
+
 /**
  * Shipped defaults. Click values without a sourced spec are seeded ESTIMATES —
- * the UI marks them as estimated and every field is user-editable.
+ * the UI marks them as estimated. Built-ins are read-only in the UI; users
+ * duplicate them (duplicateProfile) into an editable custom copy.
  * Only user overrides are persisted, so updates can improve these.
  */
 export const DEFAULT_PROFILES: SightProfile[] = [
