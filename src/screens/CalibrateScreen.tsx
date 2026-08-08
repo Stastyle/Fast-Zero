@@ -14,7 +14,7 @@ type Press = { image: Vec2; screen: Vec2 } | null
 /** Manual two-point scale calibration — fallback for non-A4 targets. */
 export function CalibrateScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, setCalibrationPoints } = useWizardStore()
+  const { photoUrl, photoSize, setCalibrationPoints, profileId } = useWizardStore()
   const [points, setPoints] = useState<Vec2[]>([])
   const [distanceCm, setDistanceCm] = useState(1)
   const [customCm, setCustomCm] = useState('')
@@ -22,6 +22,7 @@ export function CalibrateScreen() {
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
 
+  if (!profileId) return <Navigate to="/profiles" replace />
   if (!photoUrl || !photoSize) return <Navigate to="/target" replace />
 
   const onTap = (p: Vec2) => {

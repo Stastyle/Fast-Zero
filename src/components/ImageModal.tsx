@@ -27,6 +27,11 @@ export function ImageModal({ src, onClose }: ImageModalProps) {
         type="button"
         className="image-modal-close"
         aria-label={he.common.close}
+        onClick={(e) => {
+          // Close directly; stop bubbling so the wrapper's onClick doesn't fire twice.
+          e.stopPropagation()
+          onClose()
+        }}
       >
         ✕
       </button>

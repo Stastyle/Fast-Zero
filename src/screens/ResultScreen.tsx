@@ -28,8 +28,11 @@ export function ResultScreen() {
   const [showPhoto, setShowPhoto] = useState(false)
 
   const profile = profiles.find((p) => p.id === profileId) ?? null
-  const mpiPx = computeMpiPx(hits)
-  const toCm = makeCmConverter(calibration)
+  // Memoized so their identities are stable across renders — they feed the
+  // memo/effect dependency arrays below. `hits` and `calibration` come from
+  // the zustand store, so they only change identity on real updates.
+  const mpiPx = useMemo(() => computeMpiPx(hits), [hits])
+  const toCm = useMemo(() => makeCmConverter(calibration), [calibration])
   const ready = profile && mpiPx && toCm && calibration.aimPointPx
 
   const result = useMemo(() => {
@@ -45,12 +48,15 @@ export function ResultScreen() {
     }
     const spreadCm = extremeSpreadCm(hitsCm)
     return { hitsCm, mpiCm, offsetCm, correction, spreadCm, includedCount: included.length }
-  }, [ready, hits, calibration, mpiPx, profile])
+  }, [ready, hits, calibration, mpiPx, toCm, profile])
 
   // Composite the marked target once: shown in the viewer and stored with the session.
   const isSchematic = calibration.mode === 'schematic'
   const sourceUrl = isSchematic ? SCHEMATIC.url : photoUrl
-  const sourceSize = isSchematic ? { width: SCHEMATIC.width, height: SCHEMATIC.height } : photoSize
+  const sourceSize = useMemo(
+    () => (isSchematic ? { width: SCHEMATIC.width, height: SCHEMATIC.height } : photoSize),
+    [isSchematic, photoSize],
+  )
   useEffect(() => {
     if (!ready || !sourceUrl || !sourceSize) {
       setImageState('failed')
@@ -80,7 +86,7 @@ export function ResultScreen() {
     return () => {
       cancelled = true
     }
-  }, [ready, sourceUrl])
+  }, [ready, sourceUrl, sourceSize, hits, calibration.aimPointPx, mpiPx])
 
   // Never bounce silently: name what is missing and offer a way back.
   if (!ready || !result) {
