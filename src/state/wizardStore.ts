@@ -8,6 +8,8 @@ interface WizardState {
   /** Object URL of the (downscaled) photo; null in schematic mode. */
   photoUrl: string | null
   photoSize: { width: number; height: number } | null
+  /** Auto-detected A4 page corners (photo px) to pre-fill the corners screen. */
+  detectedCorners: Vec2[] | null
   calibration: CalibrationState
   hits: Hit[]
   /**
@@ -18,7 +20,7 @@ interface WizardState {
   lastTargetMode: RoundTargetMode | null
 
   selectProfile: (id: string) => void
-  setPhoto: (url: string, width: number, height: number) => void
+  setPhoto: (url: string, width: number, height: number, detectedCorners?: Vec2[] | null) => void
   /** Camera-frame capture: the crop bounds are the A4 page, so the scale is known. */
   setPhotoWithScale: (url: string, width: number, height: number, pxPerCm: number) => void
   setSchematicMode: (pxPerCm: number, aimPointPx: Vec2) => void
@@ -100,6 +102,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   profileId: loadPersistedProfileId(),
   photoUrl: null,
   photoSize: null,
+  detectedCorners: null,
   calibration: emptyCalibration('photo'),
   hits: [],
   ...loadPersistedRound(),
@@ -109,12 +112,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set({ profileId: id })
   },
 
-  setPhoto: (url, width, height) =>
+  setPhoto: (url, width, height, detectedCorners) =>
     set((s) => {
       if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
       return {
         photoUrl: url,
         photoSize: { width, height },
+        detectedCorners: detectedCorners ?? null,
         calibration: emptyCalibration('photo'),
         hits: [],
       }
@@ -127,6 +131,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       return {
         photoUrl: url,
         photoSize: { width, height },
+        detectedCorners: null,
         calibration: { ...emptyCalibration('photo'), pxPerCm },
         hits: [],
         lastTargetMode: 'camera' as const,
@@ -140,6 +145,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       return {
         photoUrl: null,
         photoSize: null,
+        detectedCorners: null,
         calibration: { ...emptyCalibration('schematic'), pxPerCm, aimPointPx },
         hits: [],
         aimFrac: null,
@@ -206,6 +212,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       return {
         photoUrl: null,
         photoSize: null,
+        detectedCorners: null,
         calibration: emptyCalibration('photo'),
         hits: [],
       }
@@ -222,6 +229,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         profileId: null,
         photoUrl: null,
         photoSize: null,
+        detectedCorners: null,
         calibration: emptyCalibration('photo'),
         hits: [],
         aimFrac: null,

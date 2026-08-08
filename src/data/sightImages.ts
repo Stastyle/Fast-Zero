@@ -16,6 +16,11 @@ export interface SightImageSpec {
 }
 
 /**
+ * NOTE: the sight-image aim guide that consumes these specs (SightDiagram on
+ * the result screen) is temporarily hidden per product decision — see
+ * SHOW_SIGHT_AIM_GUIDE in src/featureFlags.ts. Keep this data current for
+ * when it is re-enabled.
+ *
  * Real sight photos live in public/sights/ under these exact names — replace
  * the shipped placeholders with actual photos to upgrade the app.
  * After replacing a photo, tune its anchors so the rotation arrows sit

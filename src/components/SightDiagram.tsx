@@ -22,6 +22,9 @@ const DIR_HE: Record<string, string> = {
  * Photo of the selected sight with rotation arrows OVERLAID on the adjuster
  * locations (per-image anchors in sightImages.ts) plus a click-count badge,
  * and a compact per-axis legend underneath.
+ *
+ * NOTE: temporarily hidden per product decision — gated behind
+ * SHOW_SIGHT_AIM_GUIDE in src/featureFlags.ts (set to true to re-enable).
  */
 export function SightDiagram({
   profile,

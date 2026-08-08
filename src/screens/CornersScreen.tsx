@@ -14,8 +14,11 @@ type Press = { image: Vec2; screen: Vec2 } | null
 /** Fallback scale flow: tap the 4 corners of the A4 page in the photo. */
 export function CornersScreen() {
   const navigate = useNavigate()
-  const { photoUrl, photoSize, setHomography, profileId } = useWizardStore()
-  const [corners, setCorners] = useState<Vec2[]>([])
+  const { photoUrl, photoSize, setHomography, profileId, detectedCorners } = useWizardStore()
+  // Auto-detected page corners (camera fallback path) pre-fill the marking;
+  // the user can undo any of them and tap again.
+  const [corners, setCorners] = useState<Vec2[]>(() => detectedCorners ?? [])
+  const [prefilled] = useState(() => (detectedCorners?.length ?? 0) > 0)
   const [error, setError] = useState<string | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
@@ -44,6 +47,7 @@ export function CornersScreen() {
       <div style={{ padding: '10px 16px', borderBlockEnd: '2px solid var(--color-border)' }}>
         <strong>{he.corners.instruction}</strong>
         <div className="hint">{he.corners.count(corners.length)}</div>
+        {prefilled && <div className="hint">{he.corners.detected}</div>}
         {error && <div style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{error}</div>}
       </div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
