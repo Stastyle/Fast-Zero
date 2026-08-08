@@ -5,6 +5,8 @@ interface MarkerLayerProps {
   aimPoint?: Vec2 | null
   mpi?: Vec2 | null
   calibrationPoints?: Vec2[]
+  /** Auto-detected hole candidates awaiting user confirmation (image px). */
+  suggestions?: Vec2[]
   /** Inverse of the current stage scale, so markers keep a constant screen size. */
   markerScale?: number
 }
@@ -14,6 +16,7 @@ export function MarkerLayer({
   aimPoint,
   mpi,
   calibrationPoints = [],
+  suggestions = [],
   markerScale = 1,
 }: MarkerLayerProps) {
   const style = (p: Vec2) => ({
@@ -26,6 +29,11 @@ export function MarkerLayer({
     <>
       {calibrationPoints.map((p, i) => (
         <div key={`cal${i}`} className="marker marker--cal" style={style(p)} />
+      ))}
+      {suggestions.map((p, i) => (
+        <div key={`sug${i}`} className="marker marker--suggested" style={style(p)}>
+          ?
+        </div>
       ))}
       {aimPoint && (
         <div className="marker marker--aim" style={style(aimPoint)}>

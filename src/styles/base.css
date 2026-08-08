@@ -429,6 +429,18 @@ body {
   text-decoration: line-through;
 }
 
+/* Auto-detected hole candidate — hollow + dashed, clearly not a confirmed hit. */
+.marker--suggested {
+  width: 26px;
+  height: 26px;
+  border: 2px dashed var(--color-marker-suggested);
+  border-radius: 50%;
+  color: var(--color-marker-suggested);
+  font-weight: 700;
+  font-size: 13px;
+  background: transparent;
+}
+
 .marker--aim {
   width: 34px;
   height: 34px;

@@ -112,6 +112,10 @@ export const he = {
     remove: 'מחק',
     aimPoint: 'נקודת כיוון',
     selectedHit: (n: number) => `פגיעה ${n}:`,
+    suggestionsFound: (n: number) =>
+      n === 1 ? 'זוהתה פגיעה אפשרית — הקש עליה לאישור' : `זוהו ${n} פגיעות אפשריות — הקש לאישור`,
+    confirmAllSuggestions: 'אשר הכול',
+    dismissSuggestions: 'התעלם',
   },
 
   result: {

@@ -15,6 +15,8 @@
   --color-muted-bg: #eceae2;
   --color-marker: #d81b1b;
   --color-marker-excluded: #8a8a8a;
+  /* Auto-detected hole suggestions (tentative, awaiting user confirmation) */
+  --color-marker-suggested: #b45309;
   --color-mpi: #0a58ca;
   --color-aim: #1e5c3c;
   /* Camera page-alignment accents: A4-frame corner ticks + live detection overlay */
