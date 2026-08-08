@@ -8,11 +8,18 @@ import type { Vec2 } from './types'
  * (~160–240px wide), passes its ImageData here, and gets back the page
  * quadrilateral in detection-image pixels.
  *
- * Approach — the zeroing page is bright white paper against a darker
- * background, so brightness is the primary signal:
- *   1. grayscale + light 3×3 box blur (sensor noise)
- *   2. Otsu threshold → bright/dark mask; reject low-contrast scenes
- *   3. largest 4-connected bright component
+ * Approach — the zeroing page is bright paper (white OR yellow stock) against
+ * a darker background, so paper-brightness is the primary signal:
+ *   1. paper channel ((R+G)/2 — scores white and yellow paper equally high,
+ *      see paperChannel) + light 3×3 box blur (sensor noise)
+ *   2. Otsu threshold → bright/dark mask; reject low-contrast scenes.
+ *      A second pass runs at a slightly lower threshold (uneven lighting can
+ *      push a dim page margin just below the Otsu split); the pass whose
+ *      validated quad scores best wins.
+ *   3. center-weighted 4-connected bright component — the user aligns the
+ *      page inside the on-screen frame, so among sufficiently large
+ *      components the one covering the frame center is preferred over a
+ *      merely-larger bright region at the edge (wall, table)
  *   4. corners via the diagonal-extremes method (min/max of x+y and x−y)
  *   5. validate: area, side lengths, and how well the component fills its
  *      corner quad (rejects blobs / circles / L-shapes)
@@ -43,12 +50,24 @@ export interface DetectOptions {
 
 const DEFAULTS: Required<DetectOptions> = {
   minAreaFrac: 0.08,
-  minContrast: 30,
+  // 20 rather than 30: dim indoor-range scenes often separate page from
+  // background by only ~25 gray levels; the quad validation (area, sides,
+  // fill ratio) plus center weighting now carry the false-positive load.
+  minContrast: 20,
   minFillRatio: 0.65,
 }
 
 /** Region may exceed its corner quad a little (aliasing), but a circle (π/2 ≈ 1.57) must fail. */
 const MAX_FILL_RATIO = 1.35
+
+/** Second segmentation pass runs this many gray levels below the Otsu split. */
+const THRESHOLD_SLACK = 12
+
+/** Side of the central scoring window, as a fraction of each frame dimension. */
+const CENTER_WINDOW = 0.4
+
+/** Relative score of a large component with zero presence in the central window. */
+const OFF_CENTER_WEIGHT = 0.1
 
 /** RGBA → luminance (integer Rec.601 approximation), 0–255. */
 export function grayscale(image: ImageDataLike): Uint8Array {
@@ -56,6 +75,27 @@ export function grayscale(image: ImageDataLike): Uint8Array {
   const out = new Uint8Array(width * height)
   for (let i = 0, p = 0; i < out.length; i++, p += 4) {
     out[i] = (77 * data[p] + 150 * data[p + 1] + 29 * data[p + 2]) >> 8
+  }
+  return out
+}
+
+/**
+ * RGBA → paper-brightness channel: mean of R and G, blue ignored, 0–255.
+ *
+ * Zeroing target pages come in exactly two paper colors — white and yellow.
+ * Rec.601 luma under-scores yellow paper (its near-zero blue channel forfeits
+ * ~11% of the luma budget) and over-scores blue-ish bright backgrounds (sky,
+ * blue walls/tarps). (R+G)/2 rates white (255) and yellow (~240) equally high
+ * while blue and gray surroundings drop, which is exactly the separation page
+ * detection needs. Hole detection stays on plain luma (`grayscale`): it looks
+ * for dark holes inside the already-bright page, where luma is correct for
+ * both paper colors.
+ */
+export function paperChannel(image: ImageDataLike): Uint8Array {
+  const { data, width, height } = image
+  const out = new Uint8Array(width * height)
+  for (let i = 0, p = 0; i < out.length; i++, p += 4) {
+    out[i] = (data[p] + data[p + 1]) >> 1
   }
   return out
 }
@@ -125,19 +165,25 @@ function quadArea(pts: Vec2[]): number {
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
-/**
- * Detect the page as the dominant bright quadrilateral.
- * Returns corners in detection-image pixels, or null when nothing page-like
- * is present with enough confidence.
- */
-export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): DetectedQuad | null {
-  const { minAreaFrac, minContrast, minFillRatio } = { ...DEFAULTS, ...opts }
-  const w = image.width
-  const h = image.height
-  if (w < 16 || h < 16) return null
+/** Reusable per-frame buffers so the two threshold passes allocate once. */
+interface PassScratch {
+  labels: Int32Array
+  stack: Int32Array
+}
 
-  const blur = boxBlur3(grayscale(image), w, h)
-  const threshold = otsuThreshold(blur)
+/**
+ * One segmentation → component → quad → validation pass at a fixed threshold.
+ * Returns the validated quad or null. Shared by detectPage's threshold passes.
+ */
+function detectAtThreshold(
+  blur: Uint8Array,
+  w: number,
+  h: number,
+  threshold: number,
+  params: Required<DetectOptions>,
+  scratch: PassScratch,
+): DetectedQuad | null {
+  const { minAreaFrac, minContrast, minFillRatio } = params
 
   // Contrast guard: a uniform scene (all sky, all table) still yields an Otsu
   // split, but the two class means sit close together — reject it.
@@ -158,16 +204,28 @@ export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): Dete
   const contrast = hiSum / hiN - loSum / loN
   if (contrast < minContrast) return null
 
-  // Largest 4-connected bright component (iterative flood fill).
-  const labels = new Int32Array(w * h) // 0 = unvisited/dark, >0 = component id
-  const stack = new Int32Array(w * h)
+  // 4-connected bright components (iterative flood fill), scored by
+  // size × center coverage. The user aligns the page inside the on-screen
+  // frame, so the page covers the frame center; a merely-larger bright region
+  // at the edge (lit wall, table top) covers none of the central window and
+  // must be ~1/OFF_CENTER_WEIGHT× bigger to win.
+  const { labels, stack } = scratch
+  labels.fill(0) // 0 = unvisited/dark, >0 = component id
+  const cx0 = Math.round(w * (0.5 - CENTER_WINDOW / 2))
+  const cx1 = Math.round(w * (0.5 + CENTER_WINDOW / 2))
+  const cy0 = Math.round(h * (0.5 - CENTER_WINDOW / 2))
+  const cy1 = Math.round(h * (0.5 + CENTER_WINDOW / 2))
+  const windowArea = Math.max(1, (cx1 - cx0) * (cy1 - cy0))
+  const minArea = minAreaFrac * w * h
   let bestLabel = 0
   let bestSize = 0
+  let bestScore = 0
   let nextLabel = 0
   for (let start = 0; start < blur.length; start++) {
     if (blur[start] <= threshold || labels[start] !== 0) continue
     const label = ++nextLabel
     let size = 0
+    let centerCount = 0
     let top = 0
     stack[top++] = start
     labels[start] = label
@@ -175,6 +233,8 @@ export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): Dete
       const i = stack[--top]
       size++
       const x = i % w
+      const y = (i - x) / w
+      if (x >= cx0 && x < cx1 && y >= cy0 && y < cy1) centerCount++
       if (x > 0 && labels[i - 1] === 0 && blur[i - 1] > threshold) {
         labels[i - 1] = label
         stack[top++] = i - 1
@@ -192,12 +252,15 @@ export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): Dete
         stack[top++] = i + w
       }
     }
-    if (size > bestSize) {
+    if (size < minArea) continue
+    const score = size * (OFF_CENTER_WEIGHT + (1 - OFF_CENTER_WEIGHT) * (centerCount / windowArea))
+    if (score > bestScore) {
+      bestScore = score
       bestSize = size
       bestLabel = label
     }
   }
-  if (bestSize < minAreaFrac * w * h) return null
+  if (bestLabel === 0) return null
 
   // Corner extraction: diagonal extremes of the component. Robust for the
   // roughly frame-aligned page (rotations well below 45°).
@@ -254,6 +317,37 @@ export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): Dete
   const contrastScore = clamp01(contrast / 80)
   const confidence = fillScore * (0.5 + 0.5 * contrastScore)
   return { corners, confidence }
+}
+
+/**
+ * Detect the page as the dominant bright quadrilateral in the paper channel.
+ * Returns corners in detection-image pixels, or null when nothing page-like
+ * is present with enough confidence.
+ *
+ * Runs the segmentation twice — at the Otsu split and slightly below it —
+ * and keeps the pass whose validated quad has the higher confidence. Uneven
+ * lighting often pushes a dim page margin just below the Otsu split; the
+ * slack pass recovers the full page there. On equal confidence the lower
+ * threshold (larger quad) wins: cutting off a dim page margin skews the A4
+ * homography far more than a slightly generous boundary does.
+ */
+export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): DetectedQuad | null {
+  const params = { ...DEFAULTS, ...opts }
+  const w = image.width
+  const h = image.height
+  if (w < 16 || h < 16) return null
+
+  const blur = boxBlur3(paperChannel(image), w, h)
+  const otsu = otsuThreshold(blur)
+  const thresholds = otsu > THRESHOLD_SLACK ? [otsu, otsu - THRESHOLD_SLACK] : [otsu]
+
+  const scratch: PassScratch = { labels: new Int32Array(w * h), stack: new Int32Array(w * h) }
+  let best: DetectedQuad | null = null
+  for (const threshold of thresholds) {
+    const candidate = detectAtThreshold(blur, w, h, threshold, params, scratch)
+    if (candidate && (!best || candidate.confidence >= best.confidence)) best = candidate
+  }
+  return best
 }
 
 export interface SmootherOptions {

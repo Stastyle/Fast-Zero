@@ -4,6 +4,7 @@ import {
   detectPage,
   grayscale,
   otsuThreshold,
+  paperChannel,
   QuadSmoother,
   type DetectedQuad,
   type ImageDataLike,
@@ -36,28 +37,42 @@ function insideConvex(p: Vec2, poly: Vec2[]): boolean {
   return true
 }
 
-/** Synthesize an RGBA frame: dark background, optional bright convex quad, mild noise. */
+type RGB = [number, number, number]
+
+/**
+ * Synthesize an RGBA frame: background, optional convex quad, optional second
+ * convex region (distractor / dim page margin), mild noise. Colors are gray
+ * levels (`bg`/`fg`) or full RGB triples (`bgColor`/`fgColor`).
+ */
 function makeImage(opts: {
   quad?: Vec2[]
   bg?: number
   fg?: number
+  bgColor?: RGB
+  fgColor?: RGB
+  extra?: Vec2[]
+  extraColor?: RGB
   noise?: number
   width?: number
   height?: number
 }): ImageDataLike {
   const width = opts.width ?? W
   const height = opts.height ?? H
-  const bg = opts.bg ?? 40
-  const fg = opts.fg ?? 235
+  const bgColor: RGB = opts.bgColor ?? [opts.bg ?? 40, opts.bg ?? 40, opts.bg ?? 40]
+  const fgColor: RGB = opts.fgColor ?? [opts.fg ?? 235, opts.fg ?? 235, opts.fg ?? 235]
   const noise = opts.noise ?? 0
   const rand = mulberry32(7)
   const data = new Uint8ClampedArray(width * height * 4)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const bright = opts.quad && insideConvex({ x, y }, opts.quad)
-      const v = (bright ? fg : bg) + (noise ? (rand() - 0.5) * 2 * noise : 0)
+      let color = bgColor
+      if (opts.quad && insideConvex({ x, y }, opts.quad)) color = fgColor
+      else if (opts.extra && insideConvex({ x, y }, opts.extra)) color = opts.extraColor ?? fgColor
+      const n = noise ? (rand() - 0.5) * 2 * noise : 0
       const i = (y * width + x) * 4
-      data[i] = data[i + 1] = data[i + 2] = Math.max(0, Math.min(255, Math.round(v)))
+      data[i] = Math.max(0, Math.min(255, Math.round(color[0] + n)))
+      data[i + 1] = Math.max(0, Math.min(255, Math.round(color[1] + n)))
+      data[i + 2] = Math.max(0, Math.min(255, Math.round(color[2] + n)))
       data[i + 3] = 255
     }
   }
@@ -79,6 +94,15 @@ describe('grayscale / boxBlur3 / otsuThreshold', () => {
     expect(g[0]).toBe(0)
     const white = makeImage({ bg: 255 })
     expect(grayscale(white)[0]).toBe(255)
+  })
+
+  it('paperChannel scores white and yellow paper equally high, blue low', () => {
+    const white = makeImage({ bg: 255 })
+    expect(paperChannel(white)[0]).toBe(255)
+    const yellow = makeImage({ bgColor: [240, 240, 60] })
+    expect(paperChannel(yellow)[0]).toBe(240)
+    const blue = makeImage({ bgColor: [0, 0, 255] })
+    expect(paperChannel(blue)[0]).toBe(0)
   })
 
   it('boxBlur3 preserves a uniform image', () => {
@@ -135,6 +159,102 @@ describe('detectPage', () => {
     const result = detectPage(makeImage({ quad, noise: 18 }))
     expect(result).not.toBeNull()
     expectCornersClose(result!.corners, quad, 5)
+  })
+
+  it('finds a yellow page on a dark background with white-like confidence', () => {
+    const quad = [
+      { x: 30, y: 20 },
+      { x: 130, y: 20 },
+      { x: 130, y: 100 },
+      { x: 30, y: 100 },
+    ]
+    const result = detectPage(makeImage({ quad, fgColor: [240, 240, 60] }))
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 4)
+    expect(result!.confidence).toBeGreaterThan(0.7)
+  })
+
+  it('finds a yellow page on a bright blue-ish background (bright in luma, dark in paper channel)', () => {
+    // Background luma ≈ 195 vs page luma ≈ 207 — a luma pipeline sees almost
+    // no contrast. The paper channel sees 185 vs 227 and separates cleanly.
+    const quad = [
+      { x: 30, y: 20 },
+      { x: 130, y: 20 },
+      { x: 130, y: 100 },
+      { x: 30, y: 100 },
+    ]
+    const result = detectPage(
+      makeImage({ quad, fgColor: [230, 225, 60], bgColor: [175, 195, 255] }),
+    )
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 5)
+    expect(result!.confidence).toBeGreaterThan(0.5)
+  })
+
+  it('prefers the centered page over a larger off-center bright distractor', () => {
+    const quad = [
+      { x: 45, y: 30 },
+      { x: 115, y: 30 },
+      { x: 115, y: 90 },
+      { x: 45, y: 90 },
+    ]
+    // Bright wall strip at the left edge, larger than the page (39×120 = 4680
+    // px vs 70×60 = 4200 px) — the old "largest component" rule locked onto it.
+    const extra = [
+      { x: 0, y: 0 },
+      { x: 38, y: 0 },
+      { x: 38, y: 119 },
+      { x: 0, y: 119 },
+    ]
+    const result = detectPage(makeImage({ quad, extra }))
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 4)
+  })
+
+  it('recovers a dim page margin that falls just below the Otsu split (threshold slack)', () => {
+    // Bright-ish background pushes the Otsu split up to the dim strip level,
+    // so the single-threshold pass cuts the left quarter of the page off. The
+    // slack pass (Otsu − 12) keeps the full page.
+    const fullQuad = [
+      { x: 30, y: 20 },
+      { x: 130, y: 20 },
+      { x: 130, y: 100 },
+      { x: 30, y: 100 },
+    ]
+    const core = [
+      { x: 55, y: 20 },
+      { x: 130, y: 20 },
+      { x: 130, y: 100 },
+      { x: 55, y: 100 },
+    ]
+    const dimStrip = [
+      { x: 30, y: 20 },
+      { x: 55, y: 20 },
+      { x: 55, y: 100 },
+      { x: 30, y: 100 },
+    ]
+    // Otsu lands at 164 here — the 160 strip is dark to the plain pass
+    // (detects tl.x ≈ 55) but bright to the slack pass at 164 − 12 = 152.
+    const image = makeImage({ quad: core, fg: 220, extra: dimStrip, extraColor: [160, 160, 160], bg: 120 })
+    const result = detectPage(image)
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, fullQuad, 5)
+  })
+
+  it('detects a low-contrast dim scene at the default guard but not at the old stricter one', () => {
+    // Documents the minContrast 30 → 20 retune: a ~28-level separation is a
+    // real (dim indoor) page, rejected by the old guard.
+    const quad = [
+      { x: 30, y: 20 },
+      { x: 130, y: 20 },
+      { x: 130, y: 100 },
+      { x: 30, y: 100 },
+    ]
+    const image = makeImage({ quad, bg: 90, fg: 118 })
+    const result = detectPage(image)
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 4)
+    expect(detectPage(image, { minContrast: 30 })).toBeNull()
   })
 
   it('returns null for a uniform dark frame (no page)', () => {
