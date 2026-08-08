@@ -38,7 +38,16 @@ export function CornersScreen() {
       return
     }
     setHomography(mapping.homography)
-    navigate('/aim')
+    // Frame-aligned live capture keeps the previous round's aim point (a page
+    // fraction) through setHomography — apply it and skip straight to hit
+    // marking. On the free-photo fallback path setHomography cleared it.
+    const s = useWizardStore.getState()
+    if (s.aimFrac && s.photoSize) {
+      s.setAimPoint({ x: s.aimFrac.x * s.photoSize.width, y: s.aimFrac.y * s.photoSize.height })
+      navigate('/hits')
+    } else {
+      navigate('/aim')
+    }
   }
 
   return (

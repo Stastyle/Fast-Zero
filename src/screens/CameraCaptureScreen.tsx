@@ -3,9 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
 import { StepHeader } from '../components/StepHeader'
-import { A4_LONG_CM, A4_SHORT_CM } from '../core/homography'
-import { coverCropRect } from '../core/cameraCrop'
-import { detectPage, QuadSmoother } from '../core/pageDetect'
+import { A4_LONG_CM, A4_SHORT_CM, a4MappingFromCorners } from '../core/homography'
+import { coverCropRect, mapVideoPointsToCrop } from '../core/cameraCrop'
+import { detectPage, QuadSmoother, type DetectedQuad } from '../core/pageDetect'
 import type { Vec2 } from '../core/types'
 import { preparePhoto } from './photoUtils'
 
@@ -18,10 +18,16 @@ const DETECT_WIDTH = 192
 const DETECT_INTERVAL_MS = 150
 /** Below this the overlay hides rather than showing a shaky guess. */
 const MIN_OVERLAY_CONFIDENCE = 0.35
+/**
+ * Below this the capture ignores the detection and falls back to the flat
+ * frame scale — a homography from a shaky quad is worse than no homography.
+ */
+const MIN_CAPTURE_CONFIDENCE = 0.5
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
-  const { setPhoto, setPhotoWithScale, setAimPoint, aimFrac, profileId } = useWizardStore()
+  const { setPhoto, setPhotoWithScale, setPhotoWithCorners, setAimPoint, aimFrac, profileId } =
+    useWizardStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -30,6 +36,8 @@ export function CameraCaptureScreen() {
   const [orientation, setOrientation] = useState<PageOrientation>('portrait')
   /** Detected page quad in on-screen (container) pixels, or null → no overlay. */
   const [pageQuad, setPageQuad] = useState<Vec2[] | null>(null)
+  /** Smoothed quad in native VIDEO pixels — read at capture time for the homography. */
+  const videoQuadRef = useRef<DetectedQuad | null>(null)
 
   useEffect(() => {
     // The guard below redirects away without a profile — never prompt for
@@ -97,11 +105,19 @@ export function CameraCaptureScreen() {
       }
       const quad = smoother.push(detected)
       if (!quad || quad.confidence < MIN_OVERLAY_CONFIDENCE) {
+        videoQuadRef.current = null
         setPageQuad(null)
         return
       }
-      // detection px → video px → displayed px (video uses object-fit: cover,
-      // same geometry coverCropRect inverts for the capture crop).
+      // detection px → video px: kept in a ref so capture() can build a
+      // perspective-correct homography from the page's real corners.
+      const videoCorners = quad.corners.map((p) => ({
+        x: (p.x * vw) / dw,
+        y: (p.y * vh) / dh,
+      })) as DetectedQuad['corners']
+      videoQuadRef.current = { corners: videoCorners, confidence: quad.confidence }
+      // video px → displayed px (video uses object-fit: cover, same geometry
+      // coverCropRect inverts for the capture crop).
       const rect = video.getBoundingClientRect()
       if (rect.width === 0 || rect.height === 0) {
         setPageQuad(null)
@@ -111,15 +127,16 @@ export function CameraCaptureScreen() {
       const offsetX = (vw * scale - rect.width) / 2
       const offsetY = (vh * scale - rect.height) / 2
       setPageQuad(
-        quad.corners.map((p) => ({
-          x: ((p.x * vw) / dw) * scale - offsetX,
-          y: ((p.y * vh) / dh) * scale - offsetY,
+        videoCorners.map((p) => ({
+          x: p.x * scale - offsetX,
+          y: p.y * scale - offsetY,
         })),
       )
     }
     const id = window.setInterval(tick, DETECT_INTERVAL_MS)
     return () => {
       window.clearInterval(id)
+      videoQuadRef.current = null
       setPageQuad(null)
     }
   }, [state])
@@ -173,9 +190,28 @@ export function CameraCaptureScreen() {
         canvas.width,
         canvas.height,
       )
+    // Perspective correction: with a confident live page detection, take the
+    // page's REAL corners (not the frame rect) into photo pixels and calibrate
+    // via homography — a tilted phone no longer distorts the vertical cm.
+    // Falls back silently to the flat frame scale when detection is absent,
+    // shaky, or disagrees with the frame the user aligned.
+    const quad = videoQuadRef.current
+    let photoCorners: Vec2[] | null = null
+    if (quad && quad.confidence >= MIN_CAPTURE_CONFIDENCE) {
+      const mapped = mapVideoPointsToCrop(quad.corners, crop, canvas.width, canvas.height)
+      if (mapped && a4MappingFromCorners(mapped).ok) photoCorners = mapped
+    }
+
     canvas.toBlob(
       (blob) => {
         if (!blob) return
+        if (photoCorners) {
+          // Homography path: confirm/adjust the detected corners first; the
+          // corners screen applies the remembered aim point after confirming.
+          setPhotoWithCorners(URL.createObjectURL(blob), canvas.width, canvas.height, photoCorners)
+          navigate('/corners')
+          return
+        }
         // The crop equals the A4 page; its width is the page's real width.
         const pageWidthCm = orientation === 'landscape' ? A4_LONG_CM : A4_SHORT_CM
         const pxPerCm = canvas.width / pageWidthCm

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { coverCropRect } from '../cameraCrop'
+import { coverCropRect, mapVideoPointsToCrop } from '../cameraCrop'
+import { a4MappingFromCorners, applyHomography } from '../homography'
 
 describe('coverCropRect', () => {
   it('video wider than container (width overflows): crop is horizontally centered', () => {
@@ -41,5 +42,83 @@ describe('coverCropRect', () => {
     const overlay = { ...container }
     const crop = coverCropRect(container, 1600, 1200, overlay)
     expect(crop).toEqual({ left: 0, top: 0, width: 1600, height: 1200 })
+  })
+})
+
+describe('mapVideoPointsToCrop (video px → captured-photo px)', () => {
+  const crop = { left: 400, top: 200, width: 800, height: 1200 }
+
+  it('applies the crop offset and per-axis output scale', () => {
+    const out = mapVideoPointsToCrop(
+      [
+        { x: 400, y: 200 },
+        { x: 1200, y: 1400 },
+        { x: 800, y: 800 },
+      ],
+      crop,
+      400,
+      600,
+    )
+    expect(out).toEqual([
+      { x: 0, y: 0 },
+      { x: 400, y: 600 },
+      { x: 200, y: 300 },
+    ])
+  })
+
+  it('is the identity for an origin crop rendered at native size', () => {
+    const out = mapVideoPointsToCrop(
+      [{ x: 123, y: 456 }],
+      { left: 0, top: 0, width: 800, height: 1200 },
+      800,
+      1200,
+    )
+    expect(out).toEqual([{ x: 123, y: 456 }])
+  })
+
+  it('keeps points slightly outside the crop unclamped (within tolerance)', () => {
+    // -40 px on an 800 px output is within the 15% tolerance (120 px) —
+    // clamping would distort the quad, so the point passes through as-is.
+    const out = mapVideoPointsToCrop([{ x: 360, y: 140 }], crop, 800, 1200)
+    expect(out).toEqual([{ x: -40, y: -60 }])
+  })
+
+  it('returns null when any point strays beyond the tolerance', () => {
+    // x maps to -400, far outside 15% of the 800 px output.
+    expect(mapVideoPointsToCrop([{ x: 0, y: 600 }], crop, 800, 1200)).toBeNull()
+    // beyond the far edge too
+    expect(mapVideoPointsToCrop([{ x: 1400, y: 600 }], crop, 800, 1200)).toBeNull()
+  })
+
+  it('returns null for a degenerate crop', () => {
+    expect(
+      mapVideoPointsToCrop([{ x: 0, y: 0 }], { left: 0, top: 0, width: 0, height: 100 }, 100, 100),
+    ).toBeNull()
+  })
+
+  it('detected tilted page maps into a perspective-correct A4 homography', () => {
+    // Phone tilted ~15°: the far (bottom) edge of the page images narrower.
+    const crop2 = { left: 100, top: 100, width: 600, height: 860 }
+    const videoCorners = [
+      { x: 140, y: 130 }, // tl
+      { x: 660, y: 130 }, // tr
+      { x: 620, y: 930 }, // br
+      { x: 180, y: 930 }, // bl
+    ]
+    const mapped = mapVideoPointsToCrop(videoCorners, crop2, 600, 860)
+    expect(mapped).not.toBeNull()
+    const mapping = a4MappingFromCorners(mapped!)
+    expect(mapping.ok).toBe(true)
+    if (!mapping.ok) return
+    // Portrait page: 21 cm wide, 29.7 cm tall.
+    expect(mapping.pageWidthCm).toBeCloseTo(21)
+    expect(mapping.pageHeightCm).toBeCloseTo(29.7)
+    // The detected corners land exactly on the page corners in cm space.
+    const tl = applyHomography(mapping.homography, mapped![0])
+    const br = applyHomography(mapping.homography, mapped![2])
+    expect(tl.x).toBeCloseTo(0)
+    expect(tl.y).toBeCloseTo(0)
+    expect(br.x).toBeCloseTo(21)
+    expect(br.y).toBeCloseTo(29.7)
   })
 })

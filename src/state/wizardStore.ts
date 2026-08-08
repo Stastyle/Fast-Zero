@@ -10,6 +10,12 @@ interface WizardState {
   photoSize: { width: number; height: number } | null
   /** Auto-detected A4 page corners (photo px) to pre-fill the corners screen. */
   detectedCorners: Vec2[] | null
+  /**
+   * True when the current photo was captured cropped to the on-screen A4
+   * frame (live camera path) — the page fills the photo, so an aim point
+   * expressed as a photo fraction stays valid across rounds.
+   */
+  photoAligned: boolean
   calibration: CalibrationState
   hits: Hit[]
   /**
@@ -23,6 +29,12 @@ interface WizardState {
   setPhoto: (url: string, width: number, height: number, detectedCorners?: Vec2[] | null) => void
   /** Camera-frame capture: the crop bounds are the A4 page, so the scale is known. */
   setPhotoWithScale: (url: string, width: number, height: number, pxPerCm: number) => void
+  /**
+   * Camera-frame capture WITH a confident live page detection: the corners
+   * (photo px) pre-fill the corners screen for a perspective-correct
+   * homography instead of the flat pxPerCm scale.
+   */
+  setPhotoWithCorners: (url: string, width: number, height: number, corners: Vec2[]) => void
   setSchematicMode: (pxPerCm: number, aimPointPx: Vec2) => void
   setCalibrationPoints: (a: Vec2, b: Vec2, realDistanceCm: number, pxPerCm: number) => void
   /** A4 corner marking: perspective-correct px→cm mapping. */
@@ -103,6 +115,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   photoUrl: null,
   photoSize: null,
   detectedCorners: null,
+  photoAligned: false,
   calibration: emptyCalibration('photo'),
   hits: [],
   ...loadPersistedRound(),
@@ -119,6 +132,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         photoUrl: url,
         photoSize: { width, height },
         detectedCorners: detectedCorners ?? null,
+        photoAligned: false,
         calibration: emptyCalibration('photo'),
         hits: [],
       }
@@ -132,7 +146,25 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         photoUrl: url,
         photoSize: { width, height },
         detectedCorners: null,
+        photoAligned: true,
         calibration: { ...emptyCalibration('photo'), pxPerCm },
+        hits: [],
+        lastTargetMode: 'camera' as const,
+      }
+    }),
+
+  setPhotoWithCorners: (url, width, height, corners) =>
+    set((s) => {
+      if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
+      // Still the aligned camera path: the crop equals the A4 frame, so the
+      // page-fraction aim point from the previous round remains valid.
+      persistRound({ aimFrac: s.aimFrac, lastTargetMode: 'camera' })
+      return {
+        photoUrl: url,
+        photoSize: { width, height },
+        detectedCorners: corners,
+        photoAligned: true,
+        calibration: emptyCalibration('photo'),
         hits: [],
         lastTargetMode: 'camera' as const,
       }
@@ -146,6 +178,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         photoUrl: null,
         photoSize: null,
         detectedCorners: null,
+        photoAligned: false,
         calibration: { ...emptyCalibration('schematic'), pxPerCm, aimPointPx },
         hits: [],
         aimFrac: null,
@@ -160,8 +193,18 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   setHomography: (h) =>
     set((s) => {
-      // Corner marking means the photo was NOT frame-aligned — a page-fraction
-      // aim point from a previous round would not be valid here.
+      if (s.photoAligned) {
+        // Live-camera capture with detected corners: the photo IS frame-
+        // aligned, the homography only removes residual perspective. The
+        // page-fraction aim point and the camera round mode both survive.
+        persistRound({ aimFrac: s.aimFrac, lastTargetMode: 'camera' })
+        return {
+          calibration: { ...s.calibration, homography: h },
+          lastTargetMode: 'camera' as const,
+        }
+      }
+      // Corner marking on a free photo means it was NOT frame-aligned — a
+      // page-fraction aim point from a previous round would not be valid here.
       persistRound({ aimFrac: null, lastTargetMode: 'corners' })
       return {
         calibration: { ...s.calibration, homography: h },
@@ -175,7 +218,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       // On the frame-aligned camera path, remember the aim as a page fraction
       // so following rounds skip the aim step entirely.
       const frameAligned =
-        s.lastTargetMode === 'camera' && s.calibration.homography === null && s.photoSize !== null
+        s.lastTargetMode === 'camera' && s.photoAligned && s.photoSize !== null
       const aimFrac = frameAligned
         ? { x: p.x / s.photoSize!.width, y: p.y / s.photoSize!.height }
         : s.aimFrac
@@ -213,6 +256,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         photoUrl: null,
         photoSize: null,
         detectedCorners: null,
+        photoAligned: false,
         calibration: emptyCalibration('photo'),
         hits: [],
       }
@@ -230,6 +274,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         photoUrl: null,
         photoSize: null,
         detectedCorners: null,
+        photoAligned: false,
         calibration: emptyCalibration('photo'),
         hits: [],
         aimFrac: null,
