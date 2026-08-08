@@ -9,7 +9,7 @@ import { SightDiagram } from '../components/SightDiagram'
 import { SHOW_SIGHT_AIM_GUIDE } from '../featureFlags'
 import { ImageModal } from '../components/ImageModal'
 import { computeMpiPx, extremeSpreadCm, makeCmConverter } from '../core/geometry'
-import { computeCorrection } from '../core/zeroing'
+import { computeCorrection, estimateConfidence } from '../core/zeroing'
 import { appendSession } from '../data/sessions'
 import { renderMarkedImage } from '../data/markedImage'
 import { SCHEMATIC } from '../data/schematic'
@@ -47,7 +47,9 @@ export function ResultScreen() {
       up: mpiCm.up - profile!.desiredImpactOffsetCm.up,
     }
     const spreadCm = extremeSpreadCm(hitsCm)
-    return { hitsCm, mpiCm, offsetCm, correction, spreadCm, includedCount: included.length }
+    // Statistical trust in the correction — shown as an indicator, never a gate.
+    const confidence = estimateConfidence(hitsCm, offsetCm)
+    return { hitsCm, mpiCm, offsetCm, correction, spreadCm, confidence, includedCount: included.length }
   }, [ready, hits, calibration, mpiPx, toCm, profile])
 
   // Composite the marked target once: shown in the viewer and stored with the session.
@@ -181,6 +183,13 @@ export function ResultScreen() {
                 : undefined
             }
           />
+        </div>
+        <div
+          className={`confidence-note confidence-note--${result.confidence.level}`}
+          role="status"
+        >
+          <span aria-hidden="true">{result.confidence.level === 'high' ? '✓' : '⚠'}</span>
+          <span>{he.result.confidence[result.confidence.level]}</span>
         </div>
         {/* Sight-image aim guide — temporarily hidden per product decision;
             flip SHOW_SIGHT_AIM_GUIDE in src/featureFlags.ts to bring it back. */}

@@ -61,6 +61,11 @@ export const he = {
     fallback: 'צלם עם מצלמת המכשיר',
   },
 
+  pwa: {
+    updateAvailable: 'גרסה חדשה זמינה',
+    refresh: 'רענן',
+  },
+
   appError: {
     title: 'משהו השתבש',
     reload: 'טען מחדש',
@@ -134,6 +139,12 @@ export const he = {
       return `סטייה: ${r} · ${u}`
     },
     spread: (cm: string) => `גודל מקבץ: ${cm} ס״מ`,
+    /** Correction-confidence indicator — how statistically trustworthy the clicks are. */
+    confidence: {
+      high: 'מהימנות גבוהה — התיקון מבוסס על מקבץ עקבי',
+      medium: 'מהימנות בינונית — מומלץ לאמת עם מקבץ נוסף לאחר התיקון',
+      low: 'מהימנות נמוכה — מקבץ קטן או מפוזר; מומלץ לירות מקבץ נוסף לפני ביצוע התיקון',
+    },
     save: 'שמור ואיפוס נוסף',
     again: 'איפוס נוסף',
     saved: 'נשמר!',
