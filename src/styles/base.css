@@ -60,6 +60,8 @@ body {
 .app-logo {
   display: block;
   width: 100%;
+  height: auto;
+  aspect-ratio: 960 / 536; /* matches public/logo.jpg; reserves space to avoid layout shift */
 }
 
 .screen-body {
