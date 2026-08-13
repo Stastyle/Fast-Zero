@@ -175,6 +175,52 @@ describe('detectPage', () => {
   it('returns null for a tiny image', () => {
     expect(detectPage(makeImage({ width: 8, height: 8, bg: 200 }))).toBeNull()
   })
+
+  it('excludes a sun-lit background strip that merges with the page at a single threshold', () => {
+    // Page on the right, moderately bright lit surface (170) filling the same
+    // rows to its left — 4-connected to the page and above the base Otsu
+    // threshold, so a single-threshold detector returns the merged (wrong,
+    // wider) rectangle. The second-stage threshold must isolate the paper.
+    const quad = [
+      { x: 60, y: 20 },
+      { x: 150, y: 20 },
+      { x: 150, y: 100 },
+      { x: 60, y: 100 },
+    ]
+    const img = makeImage({ quad })
+    const bytes = img.data
+    for (let y = 20; y <= 100; y++) {
+      for (let x = 0; x < 60; x++) {
+        const i = (y * W + x) * 4
+        bytes[i] = bytes[i + 1] = bytes[i + 2] = 170
+      }
+    }
+    const result = detectPage(img)
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 5)
+  })
+
+  it('finds the page next to a lit region even when the merged shape is not a quad', () => {
+    // The lit strip spans only part of the page's rows → the merged component
+    // is L-shaped and fails validation outright at the base threshold.
+    const quad = [
+      { x: 60, y: 20 },
+      { x: 150, y: 20 },
+      { x: 150, y: 100 },
+      { x: 60, y: 100 },
+    ]
+    const img = makeImage({ quad })
+    const bytes = img.data
+    for (let y = 55; y <= 100; y++) {
+      for (let x = 0; x < 60; x++) {
+        const i = (y * W + x) * 4
+        bytes[i] = bytes[i + 1] = bytes[i + 2] = 175
+      }
+    }
+    const result = detectPage(img)
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 5)
+  })
 })
 
 describe('QuadSmoother', () => {

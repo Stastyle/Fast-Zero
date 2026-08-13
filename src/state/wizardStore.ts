@@ -29,6 +29,8 @@ interface WizardState {
   setHomography: (h: number[]) => void
   setAimPoint: (p: Vec2) => void
   addHit: (posPx: Vec2) => void
+  /** Batch insert (automatic hit detection) — one store update for all hits. */
+  addHits: (positions: Vec2[]) => void
   toggleExcluded: (id: string) => void
   removeHit: (id: string) => void
   undoLastHit: () => void
@@ -186,6 +188,14 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   addHit: (posPx) =>
     set((s) => ({
       hits: [...s.hits, { id: `h${++hitCounter}`, posPx, excluded: false }],
+    })),
+
+  addHits: (positions) =>
+    set((s) => ({
+      hits: [
+        ...s.hits,
+        ...positions.map((posPx) => ({ id: `h${++hitCounter}`, posPx, excluded: false })),
+      ],
     })),
 
   toggleExcluded: (id) =>
