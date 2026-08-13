@@ -1,5 +1,6 @@
 import { createHashRouter, Outlet, RouterProvider, useRouteError } from 'react-router-dom'
 import { he } from './i18n/he'
+import { appVersion } from './version'
 import { HomeScreen } from './screens/HomeScreen'
 import { ProfileSelectScreen } from './screens/ProfileSelectScreen'
 import { ProfileEditScreen } from './screens/ProfileEditScreen'
@@ -42,7 +43,11 @@ function Layout() {
   return (
     <div className="app-shell">
       <Outlet />
-      <footer className="app-footer">{he.footer}</footer>
+      <footer className="app-footer">
+        {he.footer}
+        {' | '}
+        <span dir="ltr">{appVersion}</span>
+      </footer>
     </div>
   )
 }
