@@ -12,9 +12,14 @@ import type { Vec2 } from './types'
  * background, so brightness is the primary signal:
  *   1. grayscale + light 3×3 box blur (sensor noise)
  *   2. Otsu threshold → bright/dark mask; reject low-contrast scenes
- *   3. largest 4-connected bright component
- *   4. corners via the diagonal-extremes method (min/max of x+y and x−y)
- *   5. validate: area, side lengths, and how well the component fills its
+ *   3. lighting guard: if the bright class is itself bimodal (paper AND a
+ *      sun-lit table/wall crossed the base threshold), a second-stage Otsu
+ *      inside the bright class separates paper from lit background — the
+ *      stricter threshold is tried first so the background never gets
+ *      counted as part of the page
+ *   4. largest 4-connected bright component
+ *   5. corners via the diagonal-extremes method (min/max of x+y and x−y)
+ *   6. validate: area, side lengths, and how well the component fills its
  *      corner quad (rejects blobs / circles / L-shapes)
  */
 
@@ -84,18 +89,26 @@ export function boxBlur3(gray: Uint8Array, width: number, height: number): Uint8
   return out
 }
 
-/** Otsu's threshold over a 256-bin histogram (maximises inter-class variance). */
-export function otsuThreshold(gray: Uint8Array): number {
+/** 256-bin histogram of a grayscale buffer. */
+function histogramOf(gray: Uint8Array): Uint32Array {
   const hist = new Uint32Array(256)
   for (let i = 0; i < gray.length; i++) hist[gray[i]]++
-  const total = gray.length
+  return hist
+}
+
+/** Otsu's threshold restricted to histogram bins lo..hi (maximises inter-class variance). */
+function otsuOfRange(hist: Uint32Array, lo: number, hi: number): number {
+  let total = 0
   let sumAll = 0
-  for (let v = 0; v < 256; v++) sumAll += v * hist[v]
+  for (let v = lo; v <= hi; v++) {
+    total += hist[v]
+    sumAll += v * hist[v]
+  }
   let sumBelow = 0
   let countBelow = 0
-  let best = 127
+  let best = (lo + hi) >> 1
   let bestVariance = -1
-  for (let t = 0; t < 256; t++) {
+  for (let t = lo; t <= hi; t++) {
     countBelow += hist[t]
     if (countBelow === 0) continue
     const countAbove = total - countBelow
@@ -112,6 +125,40 @@ export function otsuThreshold(gray: Uint8Array): number {
   return best
 }
 
+/** Otsu's threshold over a 256-bin histogram (maximises inter-class variance). */
+export function otsuThreshold(gray: Uint8Array): number {
+  return otsuOfRange(histogramOf(gray), 0, 255)
+}
+
+/**
+ * Second-stage Otsu inside the bright class only. Returns the stricter
+ * threshold and the gray-level gap between its two sub-classes — a large gap
+ * means the "bright" pixels are really two surfaces (paper + lit background).
+ */
+function brightClassSplit(
+  hist: Uint32Array,
+  base: number,
+): { threshold: number; gap: number } | null {
+  if (base >= 254) return null
+  const t = otsuOfRange(hist, base + 1, 255)
+  if (t <= base || t >= 255) return null
+  let loSum = 0
+  let loN = 0
+  let hiSum = 0
+  let hiN = 0
+  for (let v = base + 1; v <= 255; v++) {
+    if (v > t) {
+      hiSum += v * hist[v]
+      hiN += hist[v]
+    } else {
+      loSum += v * hist[v]
+      loN += hist[v]
+    }
+  }
+  if (loN === 0 || hiN === 0) return null
+  return { threshold: t, gap: hiSum / hiN - loSum / loN }
+}
+
 /** Signed shoelace area (positive for [tl,tr,br,bl] order in y-down coords). */
 function quadArea(pts: Vec2[]): number {
   let s = 0
@@ -126,19 +173,47 @@ function quadArea(pts: Vec2[]): number {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /**
+ * Minimum gray-level gap between the two bright sub-classes for the scene to
+ * count as "paper + lit background". Sensor noise after the blur splits at a
+ * few gray levels; a genuinely lit table/wall sits 40+ below the paper.
+ */
+const BRIGHT_SPLIT_MIN_GAP = 25
+
+/**
  * Detect the page as the dominant bright quadrilateral.
  * Returns corners in detection-image pixels, or null when nothing page-like
  * is present with enough confidence.
  */
 export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): DetectedQuad | null {
-  const { minAreaFrac, minContrast, minFillRatio } = { ...DEFAULTS, ...opts }
+  const resolved = { ...DEFAULTS, ...opts }
   const w = image.width
   const h = image.height
   if (w < 16 || h < 16) return null
 
   const blur = boxBlur3(grayscale(image), w, h)
-  const threshold = otsuThreshold(blur)
+  const hist = histogramOf(blur)
+  const base = otsuOfRange(hist, 0, 255)
 
+  // Uneven lighting: a sun-lit table/wall can cross the base threshold and
+  // 4-connect with the paper, so the merged region "becomes the page". When
+  // the bright class is genuinely bimodal, the stricter second-stage
+  // threshold isolates the paper — prefer it whenever it yields a valid quad.
+  const split = brightClassSplit(hist, base)
+  if (split && split.gap >= BRIGHT_SPLIT_MIN_GAP) {
+    const strict = quadAtThreshold(blur, w, h, split.threshold, resolved)
+    if (strict) return strict
+  }
+  return quadAtThreshold(blur, w, h, base, resolved)
+}
+
+/** One full detection pass (mask → component → corners → validation) at a fixed threshold. */
+function quadAtThreshold(
+  blur: Uint8Array,
+  w: number,
+  h: number,
+  threshold: number,
+  { minAreaFrac, minContrast, minFillRatio }: Required<DetectOptions>,
+): DetectedQuad | null {
   // Contrast guard: a uniform scene (all sky, all table) still yields an Otsu
   // split, but the two class means sit close together — reject it.
   let loSum = 0

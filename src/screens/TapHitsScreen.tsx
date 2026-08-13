@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
+import { useSettingsStore } from '../state/settingsStore'
+import { detectHitsInPhoto } from './photoUtils'
 import { StepHeader } from '../components/StepHeader'
 import { ZoomableStage } from '../components/ZoomableStage'
 import { MarkerLayer } from '../components/MarkerLayer'
@@ -23,20 +25,51 @@ export function TapHitsScreen() {
     calibration,
     hits,
     addHit,
+    addHits,
     toggleExcluded,
     removeHit,
     undoLastHit,
     profileId,
   } = useWizardStore()
+  const autoHitDetect = useSettingsStore((s) => s.autoHitDetect)
   const [selectedHitId, setSelectedHitId] = useState<string | null>(null)
   const [press, setPress] = useState<Press>(null)
   const [scale, setScale] = useState(1)
+  /** How many hits automatic detection just added (shows the review note). */
+  const [autoDetected, setAutoDetected] = useState(0)
+  /** Photo URL already processed — never auto-mark the same photo twice. */
+  const autoDetectedFor = useRef<string | null>(null)
 
   const isSchematic = calibration.mode === 'schematic'
   const imageUrl = isSchematic ? SCHEMATIC.url : photoUrl
   const size = isSchematic
     ? { width: SCHEMATIC.width, height: SCHEMATIC.height }
     : photoSize
+
+  // Automatic hit detection: on a fresh photo with no marks yet, pre-mark the
+  // holes the detector finds. Best-effort — the user reviews, and every
+  // marker stays editable exactly like a tapped one.
+  useEffect(() => {
+    if (!autoHitDetect || isSchematic || !photoUrl || !photoSize) return
+    if (autoDetectedFor.current === photoUrl) return
+    autoDetectedFor.current = photoUrl
+    if (useWizardStore.getState().hits.length > 0) return
+    let cancelled = false
+    detectHitsInPhoto(photoUrl, photoSize.width, photoSize.height)
+      .then((points) => {
+        if (cancelled || points.length === 0) return
+        // The user may have started tapping while detection ran — don't mix.
+        if (useWizardStore.getState().hits.length > 0) return
+        addHits(points)
+        setAutoDetected(points.length)
+      })
+      .catch(() => {
+        /* detection is best-effort */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [autoHitDetect, isSchematic, photoUrl, photoSize, addHits])
 
   if (!profileId) return <Navigate to="/profiles" replace />
   const toCm = makeCmConverter(calibration)
@@ -68,7 +101,12 @@ export function TapHitsScreen() {
   return (
     <div className="screen">
       <StepHeader title={he.hits.title} backTo={isSchematic ? '/target' : '/aim'} showProfile />
-      <div className="screen-note">{he.hits.instruction}</div>
+      <div className="screen-note">
+        {he.hits.instruction}
+        {autoDetected > 0 && hits.length > 0 && (
+          <div className="screen-note-highlight">{he.hits.autoDetected(autoDetected)}</div>
+        )}
+      </div>
       <div className="screen-body screen-body--flush" style={{ position: 'relative' }}>
         <ZoomableStage
           imageUrl={imageUrl}

@@ -87,6 +87,12 @@ body {
   border-block-end: 1px solid var(--color-border);
 }
 
+.screen-note-highlight {
+  margin-block-start: 4px;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+}
+
 .step-header {
   display: flex;
   align-items: center;
@@ -592,6 +598,34 @@ body {
   color: #fff;
   font-size: var(--text-lg);
   z-index: 2;
+}
+
+/* Automatic-detection checkboxes between the camera stage and the shutter. */
+.detect-settings {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  padding: 8px 16px 0;
+  background: #000;
+}
+
+.detect-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.detect-checkbox input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
 }
 
 /* Shutter lives in its own bar below the stage — never covers the frame. */

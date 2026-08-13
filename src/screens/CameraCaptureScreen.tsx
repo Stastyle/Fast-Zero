@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
+import { useSettingsStore } from '../state/settingsStore'
 import { StepHeader } from '../components/StepHeader'
 import { A4_LONG_CM, A4_SHORT_CM } from '../core/homography'
 import { coverCropRect } from '../core/cameraCrop'
@@ -22,6 +23,8 @@ const MIN_OVERLAY_CONFIDENCE = 0.35
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
   const { setPhoto, setPhotoWithScale, setAimPoint, aimFrac, profileId } = useWizardStore()
+  const { autoPageDetect, autoHitDetect, setAutoPageDetect, setAutoHitDetect } =
+    useSettingsStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -71,7 +74,7 @@ export function CameraCaptureScreen() {
   // overlay. Interval (not rAF) keeps CPU bounded; QuadSmoother removes both
   // jitter and single-frame flicker.
   useEffect(() => {
-    if (state !== 'live') return
+    if (state !== 'live' || !autoPageDetect) return
     const video = videoRef.current
     if (!video) return
     const canvas = document.createElement('canvas')
@@ -122,7 +125,7 @@ export function CameraCaptureScreen() {
       window.clearInterval(id)
       setPageQuad(null)
     }
-  }, [state])
+  }, [state, autoPageDetect])
 
   // Hardware volume keys reach the page only on some Android devices and
   // Bluetooth camera remotes (which emit volume/enter key events); iOS never
@@ -201,7 +204,7 @@ export function CameraCaptureScreen() {
   const onFallbackFile = async (file: File | undefined) => {
     if (!file) return
     try {
-      const { url, width, height, pageCorners } = await preparePhoto(file)
+      const { url, width, height, pageCorners } = await preparePhoto(file, autoPageDetect)
       // Detected page corners pre-fill the corners screen (user can adjust).
       setPhoto(url, width, height, pageCorners)
       navigate('/corners')
@@ -246,6 +249,24 @@ export function CameraCaptureScreen() {
                 {he.camera.landscape}
               </button>
             </div>
+          </div>
+          <div className="detect-settings">
+            <label className="detect-checkbox">
+              <input
+                type="checkbox"
+                checked={autoPageDetect}
+                onChange={(e) => setAutoPageDetect(e.target.checked)}
+              />
+              {he.camera.autoPageDetect}
+            </label>
+            <label className="detect-checkbox">
+              <input
+                type="checkbox"
+                checked={autoHitDetect}
+                onChange={(e) => setAutoHitDetect(e.target.checked)}
+              />
+              {he.camera.autoHitDetect}
+            </label>
           </div>
           <div className="shutter-bar">
             <button

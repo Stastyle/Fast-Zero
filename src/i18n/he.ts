@@ -58,6 +58,8 @@ export const he = {
     starting: 'מפעיל מצלמה…',
     error: 'המצלמה הפנימית לא זמינה או שהצילום נכשל',
     fallback: 'צלם עם מצלמת המכשיר',
+    autoPageDetect: 'זיהוי דף אוטומטי',
+    autoHitDetect: 'זיהוי פגיעות אוטומטי',
   },
 
   appError: {
@@ -105,6 +107,10 @@ export const he = {
     excludedCount: (n: number) => `${n} מוחרגות`,
     undo: 'בטל אחרון',
     compute: 'חשב איפוס',
+    autoDetected: (n: number) =>
+      n === 1
+        ? 'זוהתה פגיעה אחת אוטומטית — בדוק ותקן אם צריך'
+        : `זוהו ${n} פגיעות אוטומטית — בדוק ותקן אם צריך`,
     fewHitsWarning: 'מומלץ צרור של 3–5 כדורים',
     exclude: 'החרג פגיעה',
     include: 'החזר פגיעה',
