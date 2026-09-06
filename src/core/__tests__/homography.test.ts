@@ -133,6 +133,83 @@ describe('a4MappingFromCorners', () => {
     const m = a4MappingFromCorners([TL, { x: TL.x + 5, y: TL.y + 5 }, BR, BL])
     expect(m).toEqual({ ok: false, reason: 'corners-too-close' })
   })
+
+  it('measures a tilted page exactly where a frame-crop scale cannot', () => {
+    // Ground truth: a real A4 sheet. `toPx` renders it into a photo taken
+    // off-axis, so the far edge is foreshortened (694px vs 761px).
+    const pageCm = [
+      { x: 0, y: 0 },
+      { x: 21, y: 0 },
+      { x: 21, y: 29.7 },
+      { x: 0, y: 29.7 },
+    ]
+    const imagePx = [
+      { x: 34, y: 0 },
+      { x: 726, y: 48 },
+      { x: 760, y: 1030 },
+      { x: 0, y: 1075 },
+    ]
+    const toPx = computeHomography(pageCm, imagePx)!
+    const m = a4MappingFromCorners(imagePx)
+    if (!m.ok) throw new Error('expected ok')
+
+    const aimPx = applyHomography(toPx, { x: 10.5, y: 12 })
+    const convert = makeCmConverter({ homography: m.homography })!
+    // The frame-crop path can only assume "the 760px crop is 21cm wide".
+    const framePxPerCm = 760 / 21
+
+    let worstHomography = 0
+    let worstLinear = 0
+    for (const [dx, dy] of [
+      [3, 0],
+      [-3, 0],
+      [0, 3],
+      [0, -3],
+      [2.1, 2.1],
+    ]) {
+      const hitPx = applyHomography(toPx, { x: 10.5 + dx, y: 12 + dy })
+      const viaH = convert(hitPx, aimPx)
+      const viaLinear = pxToCm(hitPx, aimPx, framePxPerCm)
+      worstHomography = Math.max(worstHomography, Math.hypot(viaH.right - dx, viaH.up + dy))
+      worstLinear = Math.max(worstLinear, Math.hypot(viaLinear.right - dx, viaLinear.up + dy))
+    }
+    // Perspective-correct: exact, whatever the angle.
+    expect(worstHomography).toBeLessThan(1e-9)
+    // A single pixels-per-cm number cannot represent a tilted plane — on a 3cm
+    // offset that is already ~0.2cm, and it grows with the offset.
+    expect(worstLinear).toBeGreaterThan(0.15)
+  })
+
+  it('inverse round-trips px → cm → px', () => {
+    const m = a4MappingFromCorners([TL, TR, BR, BL])
+    if (!m.ok) throw new Error('expected ok')
+    for (const p of [TL, BR, { x: 250, y: 640 }, { x: 690, y: 110 }]) {
+      const back = applyHomography(m.inverse, applyHomography(m.homography, p))
+      expect(back.x).toBeCloseTo(p.x, 6)
+      expect(back.y).toBeCloseTo(p.y, 6)
+    }
+  })
+
+  it('inverse recovers a sheet-fixed point in a differently framed photo', () => {
+    // Same physical sheet, second round: closer, shifted and shot at an angle.
+    const first = a4MappingFromCorners([TL, TR, BR, BL])
+    const second = a4MappingFromCorners([
+      { x: 60, y: 140 },
+      { x: 880, y: 40 },
+      { x: 910, y: 1180 },
+      { x: 90, y: 1240 },
+    ])
+    if (!first.ok || !second.ok) throw new Error('expected ok')
+    // A point 10.5cm right and 14.85cm down the page — its centre.
+    const inFirst = { x: 400, y: 525 }
+    const onPage = applyHomography(first.homography, inFirst)
+    expect(onPage.x).toBeCloseTo(10.5, 5)
+    const inSecond = applyHomography(second.inverse, onPage)
+    // It must land back on the same page position in the new photo.
+    const backOnPage = applyHomography(second.homography, inSecond)
+    expect(backOnPage.x).toBeCloseTo(onPage.x, 6)
+    expect(backOnPage.y).toBeCloseTo(onPage.y, 6)
+  })
 })
 
 describe('makeCmConverter', () => {

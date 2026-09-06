@@ -66,8 +66,10 @@ export interface CalibrationState {
   pointB: Vec2 | null
   realDistanceCm: number | null
   pxPerCm: number | null
-  /** px→page-cm homography from A4 corner marking; when set it wins over pxPerCm. */
+  /** px→page-cm homography from A4 corner detection/marking; when set it wins over pxPerCm. */
   homography: number[] | null
+  /** The reverse mapping, page cm→px. Restores a sheet-fixed aim point in a new photo. */
+  inverseHomography: number[] | null
   aimPointPx: Vec2 | null
 }
 

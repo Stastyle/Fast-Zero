@@ -200,6 +200,59 @@ describe('detectPage', () => {
     expectCornersClose(result!.corners, quad, 5)
   })
 
+  it('locates an A4-proportioned page to within a pixel and a half', () => {
+    // 60×85 ≈ the 21:29.7 ratio the detector now expects. The per-side line fit
+    // averages over ~150 edge pixels, so corners land far inside one pixel of
+    // the detection grid — which is what the px→cm mapping is built from.
+    const quad = [
+      { x: 50, y: 15 },
+      { x: 110, y: 15 },
+      { x: 110, y: 100 },
+      { x: 50, y: 100 },
+    ]
+    const result = detectPage(makeImage({ quad, noise: 10 }))
+    expect(result).not.toBeNull()
+    expectCornersClose(result!.corners, quad, 1.5)
+    // High enough for the camera screen to measure from it without asking.
+    expect(result!.confidence).toBeGreaterThanOrEqual(0.6)
+  })
+
+  it('a bright nick at a corner no longer drags that corner out', () => {
+    // A glare bridge or a scrap of paper touching the sheet becomes part of the
+    // component. Diagonal extremes hand the corner straight to the intruder;
+    // the trimmed per-side fit outvotes it with the real edge pixels.
+    const quad = [
+      { x: 30, y: 25 },
+      { x: 130, y: 25 },
+      { x: 130, y: 105 },
+      { x: 30, y: 105 },
+    ]
+    const img = makeImage({ quad })
+    const bytes = img.data
+    for (let y = 19; y <= 24; y++) {
+      for (let x = 130; x <= 135; x++) {
+        const i = (y * W + x) * 4
+        bytes[i] = bytes[i + 1] = bytes[i + 2] = 235
+      }
+    }
+    const result = detectPage(img)
+    expect(result).not.toBeNull()
+    // The nick's tip sits 7px away on the diagonal; the corner must stay put.
+    expect(Math.hypot(result!.corners[1].x - 130, result!.corners[1].y - 25)).toBeLessThan(2)
+  })
+
+  it('rejects a bright region whose shape is nothing like a sheet of A4', () => {
+    // Page fully merged with an equally bright lit surface: there is no second
+    // threshold that separates them, so the only safe answer is "no page".
+    const quad = [
+      { x: 20, y: 40 },
+      { x: 150, y: 40 },
+      { x: 150, y: 85 },
+      { x: 20, y: 85 },
+    ]
+    expect(detectPage(makeImage({ quad }))).toBeNull()
+  })
+
   it('finds the page next to a lit region even when the merged shape is not a quad', () => {
     // The lit strip spans only part of the page's rows → the merged component
     // is L-shaped and fails validation outright at the base threshold.

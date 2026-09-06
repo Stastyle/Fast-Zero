@@ -51,6 +51,8 @@ export const he = {
   camera: {
     title: 'צילום מטרה',
     align: 'יישר את גבולות דף ה־A4 למסגרת',
+    pageLocked: 'הדף זוהה — אפשר לצלם',
+    pageLockedHint: 'קנה המידה נקבע לפי גבולות הדף שזוהו, גם בזווית ובלי יישור מדויק',
     capture: 'צלם',
     portrait: 'דף לאורך',
     landscape: 'דף לרוחב',
@@ -58,7 +60,7 @@ export const he = {
     starting: 'מפעיל מצלמה…',
     error: 'המצלמה הפנימית לא זמינה או שהצילום נכשל',
     fallback: 'צלם עם מצלמת המכשיר',
-    autoPageDetect: 'זיהוי דף אוטומטי',
+    autoPageDetect: 'סימון דף אוטומטי',
     autoHitDetect: 'זיהוי פגיעות אוטומטי',
   },
 

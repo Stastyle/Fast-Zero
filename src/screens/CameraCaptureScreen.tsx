@@ -4,8 +4,13 @@ import { he } from '../i18n/he'
 import { useWizardStore } from '../state/wizardStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { StepHeader } from '../components/StepHeader'
-import { A4_LONG_CM, A4_SHORT_CM } from '../core/homography'
-import { coverCropRect } from '../core/cameraCrop'
+import {
+  A4_LONG_CM,
+  A4_SHORT_CM,
+  a4MappingFromCorners,
+  applyHomography,
+} from '../core/homography'
+import { coverCropRect, quadCropRect, visibleSourceRect } from '../core/cameraCrop'
 import { detectPage, QuadSmoother } from '../core/pageDetect'
 import type { Vec2 } from '../core/types'
 import { preparePhoto } from './photoUtils'
@@ -14,15 +19,39 @@ type CameraState = 'starting' | 'live' | 'error'
 type PageOrientation = 'portrait' | 'landscape'
 
 /** Width of the downscaled frame the detector runs on (CPU stays negligible). */
-const DETECT_WIDTH = 192
+const DETECT_WIDTH = 224
 /** ~6–7 detections per second — plenty for a hand-held preview. */
 const DETECT_INTERVAL_MS = 150
 /** Below this the overlay hides rather than showing a shaky guess. */
 const MIN_OVERLAY_CONFIDENCE = 0.35
+/**
+ * At or above this the detected quad drives the measurement directly: the photo
+ * is cropped to the page and the px→cm mapping is the homography built from
+ * these corners, so neither alignment nor camera angle affects the result.
+ * Below it the same corners only PRE-FILL the corner-marking screen — a shaky
+ * guess must never silently become the scale.
+ */
+const AUTO_PAGE_CONFIDENCE = 0.6
+/** Long edge of the captured photo, matching the native-camera path. */
+const MAX_CAPTURE_DIMENSION = 2048
+
+interface Detection {
+  /** Page corners in native VIDEO pixels, ordered [tl, tr, br, bl]. */
+  corners: Vec2[]
+  confidence: number
+}
 
 export function CameraCaptureScreen() {
   const navigate = useNavigate()
-  const { setPhoto, setPhotoWithScale, setAimPoint, aimFrac, profileId } = useWizardStore()
+  const {
+    setPhoto,
+    setPhotoWithScale,
+    setPhotoWithPage,
+    setAimPoint,
+    aimFrac,
+    aimPageCm,
+    profileId,
+  } = useWizardStore()
   const { autoPageDetect, autoHitDetect, setAutoPageDetect, setAutoHitDetect } =
     useSettingsStore()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -33,6 +62,10 @@ export function CameraCaptureScreen() {
   const [orientation, setOrientation] = useState<PageOrientation>('portrait')
   /** Detected page quad in on-screen (container) pixels, or null → no overlay. */
   const [pageQuad, setPageQuad] = useState<Vec2[] | null>(null)
+  /** True while the detection is good enough to measure from (drives the overlay colour). */
+  const [pageLocked, setPageLocked] = useState(false)
+  /** Latest detection in video pixels — what `capture` measures from. */
+  const detectionRef = useRef<Detection | null>(null)
 
   useEffect(() => {
     // The guard below redirects away without a profile — never prompt for
@@ -69,10 +102,15 @@ export function CameraCaptureScreen() {
     }
   }, [profileId])
 
-  // Live page-boundary detection: a few times per second, downscale the video
-  // frame, find the bright A4 quad and map it to on-screen pixels for the
-  // overlay. Interval (not rAF) keeps CPU bounded; QuadSmoother removes both
-  // jitter and single-frame flicker.
+  // Live page-boundary detection: a few times per second, downscale the part of
+  // the video the user can SEE, find the bright A4 quad, and keep it both in
+  // screen pixels (overlay) and in video pixels (capture). Interval (not rAF)
+  // keeps CPU bounded; QuadSmoother removes both jitter and single-frame flicker.
+  //
+  // Feeding the detector the whole sensor frame was a bug: the preview is
+  // object-fit: cover, so most of a 16:9 frame's width never reaches the
+  // screen. Bright things hidden out there merged with the page and dragged the
+  // quad off-screen, with nothing visible to explain it.
   useEffect(() => {
     if (state !== 'live' || !autoPageDetect) return
     const video = videoRef.current
@@ -81,49 +119,66 @@ export function CameraCaptureScreen() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
     const smoother = new QuadSmoother()
+    const clear = () => {
+      setPageQuad(null)
+      setPageLocked(false)
+      detectionRef.current = null
+    }
     const tick = () => {
       const vw = video.videoWidth
       const vh = video.videoHeight
-      if (!vw || !vh) return
+      const rect = video.getBoundingClientRect()
+      if (!vw || !vh || rect.width === 0 || rect.height === 0) return
+      const visible = visibleSourceRect(rect, vw, vh)
       const dw = DETECT_WIDTH
-      const dh = Math.max(16, Math.round((vh / vw) * dw))
+      // The detection canvas mirrors the CONTAINER's aspect, because that is
+      // the shape of the region being sampled.
+      const dh = Math.max(16, Math.round((rect.height / rect.width) * dw))
       if (canvas.width !== dw || canvas.height !== dh) {
         canvas.width = dw
         canvas.height = dh
       }
       let detected
       try {
-        ctx.drawImage(video, 0, 0, dw, dh)
+        ctx.drawImage(
+          video,
+          visible.left,
+          visible.top,
+          visible.width,
+          visible.height,
+          0,
+          0,
+          dw,
+          dh,
+        )
         detected = detectPage(ctx.getImageData(0, 0, dw, dh))
       } catch {
         detected = null // e.g. video not ready yet
       }
       const quad = smoother.push(detected)
       if (!quad || quad.confidence < MIN_OVERLAY_CONFIDENCE) {
-        setPageQuad(null)
+        clear()
         return
       }
-      // detection px → video px → displayed px (video uses object-fit: cover,
-      // same geometry coverCropRect inverts for the capture crop).
-      const rect = video.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) {
-        setPageQuad(null)
-        return
-      }
-      const scale = Math.max(rect.width / vw, rect.height / vh)
-      const offsetX = (vw * scale - rect.width) / 2
-      const offsetY = (vh * scale - rect.height) / 2
-      setPageQuad(
-        quad.corners.map((p) => ({
-          x: ((p.x * vw) / dw) * scale - offsetX,
-          y: ((p.y * vh) / dh) * scale - offsetY,
+      // Detection px → screen px. The sampled region IS the container, so this
+      // is a plain scale — a corner can no longer land outside the preview.
+      const sx = rect.width / dw
+      const sy = rect.height / dh
+      setPageQuad(quad.corners.map((p) => ({ x: p.x * sx, y: p.y * sy })))
+      setPageLocked(quad.confidence >= AUTO_PAGE_CONFIDENCE)
+      // Detection px → video px, for the capture crop and the homography.
+      detectionRef.current = {
+        corners: quad.corners.map((p) => ({
+          x: visible.left + (p.x * visible.width) / dw,
+          y: visible.top + (p.y * visible.height) / dh,
         })),
-      )
+        confidence: quad.confidence,
+      }
     }
     const id = window.setInterval(tick, DETECT_INTERVAL_MS)
     return () => {
       window.clearInterval(id)
-      setPageQuad(null)
+      clear()
     }
   }, [state, autoPageDetect])
 
@@ -143,11 +198,82 @@ export function CameraCaptureScreen() {
     return () => window.removeEventListener('keydown', onKey)
   }, [state])
 
+  /**
+   * Preferred capture: crop to the DETECTED page and derive the px→cm mapping
+   * from its corners. The scale then comes from where the sheet actually is,
+   * not from the assumption that it was aligned to the on-screen frame, and the
+   * homography also removes the perspective error of an off-axis shot.
+   * Returns false when there is nothing trustworthy to measure from.
+   */
+  const captureFromDetectedPage = (video: HTMLVideoElement, detection: Detection): boolean => {
+    const vw = video.videoWidth
+    const vh = video.videoHeight
+    const crop = quadCropRect(detection.corners, vw, vh)
+    if (!(crop.width >= 50) || !(crop.height >= 50)) return false
+
+    const shrink = Math.min(1, MAX_CAPTURE_DIMENSION / Math.max(crop.width, crop.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(crop.width * shrink)
+    canvas.height = Math.round(crop.height * shrink)
+    // Corners expressed in the cropped photo's own pixels.
+    const corners = detection.corners.map((p) => ({
+      x: (p.x - crop.left) * shrink,
+      y: (p.y - crop.top) * shrink,
+    }))
+    const mapping = a4MappingFromCorners(corners)
+    if (!mapping.ok) return false
+
+    canvas
+      .getContext('2d')!
+      .drawImage(
+        video,
+        crop.left,
+        crop.top,
+        crop.width,
+        crop.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      )
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        if (detection.confidence < AUTO_PAGE_CONFIDENCE) {
+          // Good enough to propose, not good enough to measure from unseen.
+          setPhoto(url, canvas.width, canvas.height, corners)
+          navigate('/corners')
+          return
+        }
+        setPhotoWithPage(url, canvas.width, canvas.height, mapping.homography, mapping.inverse)
+        // The aim point is remembered against the SHEET, so it survives a new
+        // framing, distance or angle — map it back into this photo and skip
+        // straight to hit marking.
+        const aim = aimPageCm ? applyHomography(mapping.inverse, aimPageCm) : null
+        if (aim && Number.isFinite(aim.x) && Number.isFinite(aim.y)) {
+          setAimPoint(aim)
+          navigate('/hits')
+        } else {
+          navigate('/aim')
+        }
+      },
+      'image/jpeg',
+      0.9,
+    )
+    return true
+  }
+
   const capture = () => {
     const video = videoRef.current
     const frame = frameRef.current
     if (!video || !frame || video.videoWidth === 0) return
 
+    const detection = detectionRef.current
+    if (autoPageDetect && detection && captureFromDetectedPage(video, detection)) return
+
+    // Nothing detected (feature off, or the page was not found): fall back to
+    // the fixed frame, which assumes the user aligned the sheet to it.
     // Map the on-screen A4 frame rect into native video pixels
     // (video fills its container with object-fit: cover).
     const containerRect = video.getBoundingClientRect()
@@ -220,17 +346,35 @@ export function CameraCaptureScreen() {
       <StepHeader title={he.camera.title} backTo="/target" showProfile />
       {state !== 'error' ? (
         <>
+          {/* Top-level switch: on, the detected page sets the scale; off, the
+              capture uses the on-screen frame's bounds and nothing else. */}
+          <div className="camera-toolbar">
+            <label className="detect-checkbox">
+              <input
+                type="checkbox"
+                checked={autoPageDetect}
+                onChange={(e) => setAutoPageDetect(e.target.checked)}
+              />
+              {he.camera.autoPageDetect}
+            </label>
+          </div>
           <div className="camera-stage">
             <video ref={videoRef} playsInline muted autoPlay />
             {pageQuad && (
-              <svg className="page-detect-overlay" aria-hidden="true">
+              <svg
+                className={`page-detect-overlay${pageLocked ? ' page-detect-overlay--locked' : ''}`}
+                aria-hidden="true"
+              >
                 <polygon points={pageQuad.map((p) => `${p.x},${p.y}`).join(' ')} />
               </svg>
             )}
-            <div ref={frameRef} className={`a4-frame a4-frame--${orientation}`} />
+            <div
+              ref={frameRef}
+              className={`a4-frame a4-frame--${orientation}${pageLocked ? ' a4-frame--idle' : ''}`}
+            />
             <div className="camera-hint">
-              {he.camera.align}
-              <small>{he.camera.volumeHint}</small>
+              {pageLocked ? he.camera.pageLocked : he.camera.align}
+              <small>{pageLocked ? he.camera.pageLockedHint : he.camera.volumeHint}</small>
             </div>
             {state === 'starting' && <div className="camera-starting">{he.camera.starting}</div>}
             <div className="camera-toggle">
@@ -251,14 +395,6 @@ export function CameraCaptureScreen() {
             </div>
           </div>
           <div className="detect-settings">
-            <label className="detect-checkbox">
-              <input
-                type="checkbox"
-                checked={autoPageDetect}
-                onChange={(e) => setAutoPageDetect(e.target.checked)}
-              />
-              {he.camera.autoPageDetect}
-            </label>
             <label className="detect-checkbox">
               <input
                 type="checkbox"

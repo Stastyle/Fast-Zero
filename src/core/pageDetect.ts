@@ -18,9 +18,19 @@ import type { Vec2 } from './types'
  *      stricter threshold is tried first so the background never gets
  *      counted as part of the page
  *   4. largest 4-connected bright component
- *   5. corners via the diagonal-extremes method (min/max of x+y and x−y)
- *   6. validate: area, side lengths, and how well the component fills its
- *      corner quad (rejects blobs / circles / L-shapes)
+ *   5. seed corners via the diagonal-extremes method (min/max of x+y and x−y)
+ *   6. refine each side by a trimmed least-squares fit over the component's
+ *      boundary pixels, then intersect adjacent sides for sub-pixel corners —
+ *      the seed is a max-based estimator that a single stray bright pixel can
+ *      drag a long way; the fit averages over hundreds of edge pixels
+ *   7. validate: area, side lengths, convexity, corner angles, opposite-side
+ *      ratio, A4-like aspect, and how well the component fills its corner quad
+ *      (rejects blobs / circles / L-shapes / page-merged-with-background)
+ *
+ * IMPORTANT for callers rendering a live overlay: pass ImageData of the region
+ * the user actually SEES. A preview drawn with object-fit: cover hides a large
+ * part of the sensor frame, and bright objects hidden there merge with the page
+ * and blow the quad outward for no reason visible on screen.
  */
 
 /** Minimal ImageData shape (RGBA byte order), constructible in tests without a DOM. */
@@ -54,6 +64,34 @@ const DEFAULTS: Required<DetectOptions> = {
 
 /** Region may exceed its corner quad a little (aliasing), but a circle (π/2 ≈ 1.57) must fail. */
 const MAX_FILL_RATIO = 1.35
+
+/** ISO A4 long/short side ratio — the shape prior every candidate must satisfy. */
+const A4_ASPECT = 297 / 210
+
+/**
+ * How far the observed width/height ratio may stray from A4 (or its
+ * reciprocal). Tilting the camera foreshortens one axis — 1.45 still admits
+ * roughly a 45° tilt, while rejecting the wide, skewed quads produced when the
+ * page merges with a lit table or a second sheet.
+ */
+const A4_ASPECT_TOLERANCE = 1.45
+
+/** Opposite sides of a page seen in perspective stay comparable in length. */
+const MIN_OPPOSITE_SIDE_RATIO = 0.6
+
+/** A projected rectangle keeps its corners well away from degenerate angles. */
+const MIN_CORNER_ANGLE_DEG = 55
+const MAX_CORNER_ANGLE_DEG = 125
+
+/**
+ * Per-side RMS fit residual (as a fraction of the mean side length) at which
+ * the straightness term of the confidence reaches zero. Sensor noise on a real
+ * edge lands near 0.01; a staircase edge from a merged region lands far higher.
+ */
+const EDGE_RESIDUAL_SCALE = 0.08
+
+/** Refined corners further than this (× mean side) from their seed mean the fit ran away. */
+const MAX_CORNER_DRIFT_FRAC = 0.3
 
 /** RGBA → luminance (integer Rec.601 approximation), 0–255. */
 export function grayscale(image: ImageDataLike): Uint8Array {
@@ -172,6 +210,211 @@ function quadArea(pts: Vec2[]): number {
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
+const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y)
+
+/** A line as a point on it plus a unit direction. */
+interface Line {
+  c: Vec2
+  d: Vec2
+}
+
+/**
+ * Total-least-squares line through the points (principal axis of their
+ * covariance) — unlike y-on-x regression this handles vertical sides.
+ */
+function fitLine(pts: Vec2[]): Line | null {
+  const n = pts.length
+  if (n < 2) return null
+  let mx = 0
+  let my = 0
+  for (const p of pts) {
+    mx += p.x
+    my += p.y
+  }
+  mx /= n
+  my /= n
+  let sxx = 0
+  let sxy = 0
+  let syy = 0
+  for (const p of pts) {
+    const dx = p.x - mx
+    const dy = p.y - my
+    sxx += dx * dx
+    sxy += dx * dy
+    syy += dy * dy
+  }
+  if (sxx + syy < 1e-9) return null
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy)
+  return { c: { x: mx, y: my }, d: { x: Math.cos(theta), y: Math.sin(theta) } }
+}
+
+/** Perpendicular distance from a point to a line. */
+function lineResidual(line: Line, p: Vec2): number {
+  return Math.abs((p.x - line.c.x) * line.d.y - (p.y - line.c.y) * line.d.x)
+}
+
+/** Intersection of two lines, or null when they are (near) parallel. */
+function intersectLines(a: Line, b: Line): Vec2 | null {
+  const den = a.d.x * b.d.y - a.d.y * b.d.x
+  if (Math.abs(den) < 1e-9) return null
+  const t = ((b.c.x - a.c.x) * b.d.y - (b.c.y - a.c.y) * b.d.x) / den
+  return { x: a.c.x + t * a.d.x, y: a.c.y + t * a.d.y }
+}
+
+/** Value at the given quantile of an unsorted numeric array. */
+function quantile(values: number[], q: number): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]
+}
+
+/** Boundary pixels of one labelled component (4-neighbourhood; image edges count). */
+function boundaryOf(labels: Int32Array, w: number, h: number, label: number): Vec2[] {
+  const out: Vec2[] = []
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] !== label) continue
+    const x = i % w
+    const y = (i - x) / w
+    if (
+      x === 0 ||
+      y === 0 ||
+      x === w - 1 ||
+      y === h - 1 ||
+      labels[i - 1] !== label ||
+      labels[i + 1] !== label ||
+      labels[i - w] !== label ||
+      labels[i + w] !== label
+    ) {
+      out.push({ x, y })
+    }
+  }
+  return out
+}
+
+/**
+ * Refine a seed quad by fitting a line to each side's boundary pixels and
+ * intersecting adjacent sides. Returns sub-pixel corners plus the mean RMS fit
+ * residual (as a fraction of the mean side length) — a straightness measure
+ * that separates a real page edge from the staircase of a merged region.
+ */
+function refineQuad(
+  boundary: Vec2[],
+  seed: Vec2[],
+): { corners: [Vec2, Vec2, Vec2, Vec2]; residual: number } | null {
+  const sideLen = seed.map((p, i) => dist(p, seed[(i + 1) % 4]))
+  const meanSide = (sideLen[0] + sideLen[1] + sideLen[2] + sideLen[3]) / 4
+  if (meanSide < 4) return null
+  // Wide enough to capture the true edge when the seed is a pixel or two off,
+  // narrow enough not to swallow the opposite side of a thin page.
+  const band = Math.max(2, Math.min(12, 0.07 * meanSide))
+  const lines: Line[] = []
+  let residualSum = 0
+
+  for (let i = 0; i < 4; i++) {
+    const a = seed[i]
+    const b = seed[(i + 1) % 4]
+    const len = sideLen[i]
+    if (len < 1) return null
+    const ux = (b.x - a.x) / len
+    const uy = (b.y - a.y) / len
+    // Skip the ends: rounded/clipped corners would bend the fit.
+    const tMin = 0.08 * len
+    const tMax = 0.92 * len
+    const near: Vec2[] = []
+    for (const p of boundary) {
+      const dx = p.x - a.x
+      const dy = p.y - a.y
+      const t = dx * ux + dy * uy
+      if (t < tMin || t > tMax) continue
+      if (Math.abs(dx * -uy + dy * ux) > band) continue
+      near.push(p)
+    }
+    if (near.length < 8) return null
+
+    let line = fitLine(near)
+    if (!line) return null
+    // One trimming pass: drop the worst quarter (glare bleed, a nicked corner,
+    // the odd bright speck) and refit on what is left.
+    const first = line
+    const residuals = near.map((p) => lineResidual(first, p))
+    const cutoff = quantile(residuals, 0.75)
+    const kept = near.filter((_, k) => residuals[k] <= cutoff)
+    if (kept.length >= 8) {
+      const refit = fitLine(kept)
+      if (refit) line = refit
+    }
+    const scoring = kept.length >= 8 ? kept : near
+    const fitted = line
+    let sq = 0
+    for (const p of scoring) sq += lineResidual(fitted, p) ** 2
+    residualSum += Math.sqrt(sq / scoring.length) / meanSide
+    lines.push(line)
+  }
+
+  const corners: Vec2[] = []
+  for (let i = 0; i < 4; i++) {
+    // Corner i is where the side arriving at it meets the side leaving it.
+    const p = intersectLines(lines[(i + 3) % 4], lines[i])
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return null
+    if (dist(p, seed[i]) > MAX_CORNER_DRIFT_FRAC * meanSide) return null
+    corners.push(p)
+  }
+  return {
+    corners: corners as [Vec2, Vec2, Vec2, Vec2],
+    residual: residualSum / 4,
+  }
+}
+
+/**
+ * Shape prior: the quad must look like an A4 sheet seen from a plausible
+ * angle. Rejects the wide, skewed quads that come out of a page merged with a
+ * lit table, a second sheet, or a window.
+ */
+function isPageShaped(corners: Vec2[]): boolean {
+  // Convexity — every turn must go the same way.
+  let sign = 0
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i]
+    const b = corners[(i + 1) % 4]
+    const c = corners[(i + 2) % 4]
+    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+    if (Math.abs(cross) < 1e-9) return false
+    const s = cross > 0 ? 1 : -1
+    if (sign === 0) sign = s
+    else if (s !== sign) return false
+  }
+
+  // Corner angles well away from degenerate.
+  for (let i = 0; i < 4; i++) {
+    const prev = corners[(i + 3) % 4]
+    const cur = corners[i]
+    const next = corners[(i + 1) % 4]
+    const ax = prev.x - cur.x
+    const ay = prev.y - cur.y
+    const bx = next.x - cur.x
+    const by = next.y - cur.y
+    const la = Math.hypot(ax, ay)
+    const lb = Math.hypot(bx, by)
+    if (la < 1e-6 || lb < 1e-6) return false
+    const cos = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))
+    const angle = (Math.acos(cos) * 180) / Math.PI
+    if (angle < MIN_CORNER_ANGLE_DEG || angle > MAX_CORNER_ANGLE_DEG) return false
+  }
+
+  const [tl, tr, br, bl] = corners
+  const top = dist(tl, tr)
+  const bottom = dist(bl, br)
+  const left = dist(tl, bl)
+  const right = dist(tr, br)
+  if (Math.min(top, bottom) / Math.max(top, bottom) < MIN_OPPOSITE_SIDE_RATIO) return false
+  if (Math.min(left, right) / Math.max(left, right) < MIN_OPPOSITE_SIDE_RATIO) return false
+
+  // A4-like aspect, in either orientation.
+  const aspect = (top + bottom) / (left + right)
+  const target = aspect >= 1 ? A4_ASPECT : 1 / A4_ASPECT
+  const off = Math.max(aspect / target, target / aspect)
+  return off <= A4_ASPECT_TOLERANCE
+}
+
 /**
  * Minimum gray-level gap between the two bright sub-classes for the scene to
  * count as "paper + lit background". Sensor noise after the blur splits at a
@@ -203,7 +446,17 @@ export function detectPage(image: ImageDataLike, opts: DetectOptions = {}): Dete
     const strict = quadAtThreshold(blur, w, h, split.threshold, resolved)
     if (strict) return strict
   }
-  return quadAtThreshold(blur, w, h, base, resolved)
+  const atBase = quadAtThreshold(blur, w, h, base, resolved)
+  if (atBase) return atBase
+  // Neither extreme separated the page: one intermediate cut often does, e.g.
+  // a shadow gradient across the sheet itself.
+  if (split) {
+    const mid = Math.round((base + split.threshold) / 2)
+    if (mid > base && mid < split.threshold) {
+      return quadAtThreshold(blur, w, h, mid, resolved)
+    }
+  }
+  return null
 }
 
 /** One full detection pass (mask → component → corners → validation) at a fixed threshold. */
@@ -308,15 +561,24 @@ function quadAtThreshold(
     }
   }
 
-  const corners: [Vec2, Vec2, Vec2, Vec2] = [tl, tr, br, bl]
+  const seed: [Vec2, Vec2, Vec2, Vec2] = [tl, tr, br, bl]
 
   // Degenerate quads: every side must have real length.
   const minSide = 0.08 * Math.min(w, h)
   for (let i = 0; i < 4; i++) {
-    const a = corners[i]
-    const b = corners[(i + 1) % 4]
+    const a = seed[i]
+    const b = seed[(i + 1) % 4]
     if (Math.hypot(a.x - b.x, a.y - b.y) < minSide) return null
   }
+
+  // Sub-pixel corners from the component's actual edges. The seed above is a
+  // max over the component, so one stray bright pixel moves a corner by its
+  // full offset; the per-side fit averages that away.
+  const refined = refineQuad(boundaryOf(labels, w, h, bestLabel), seed)
+  if (!refined) return null
+  const corners = refined.corners
+
+  if (!isPageShaped(corners)) return null
 
   // Fill ratio: a genuine (convex) page fills its corner quad almost fully;
   // arbitrary blobs do not.
@@ -327,7 +589,8 @@ function quadAtThreshold(
 
   const fillScore = clamp01((Math.min(fillRatio, 1) - minFillRatio) / (0.95 - minFillRatio))
   const contrastScore = clamp01(contrast / 80)
-  const confidence = fillScore * (0.5 + 0.5 * contrastScore)
+  const straightScore = clamp01(1 - refined.residual / EDGE_RESIDUAL_SCALE)
+  const confidence = fillScore * (0.5 + 0.5 * contrastScore) * (0.4 + 0.6 * straightScore)
   return { corners, confidence }
 }
 

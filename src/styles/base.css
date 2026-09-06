@@ -509,6 +509,15 @@ body {
   stroke-linejoin: round;
 }
 
+/* Locked on: this outline IS the measurement, so it must not look like the
+   same tentative hint as a low-confidence guess. */
+.page-detect-overlay--locked polygon {
+  fill: var(--color-page-locked);
+  fill-opacity: 0.18;
+  stroke: var(--color-page-locked);
+  stroke-width: 4;
+}
+
 /* A4 ratio via matched width/height clamps (no aspect-ratio dependency).
    Portrait: 210×297. Landscape: 297×210.
    PRECISION: the white line is an OUTLINE (drawn outside the box), so the
@@ -519,6 +528,19 @@ body {
   outline: 3px solid #fff;
   border-radius: 2px;
   box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.45);
+}
+
+/* While the detection drives the scale the frame is only a framing aid, so it
+   steps back rather than telling the user to align to something that no longer
+   matters. Its rect still backs the fallback crop, so it must keep its size. */
+.a4-frame--idle {
+  outline-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.25);
+}
+
+.a4-frame--idle::before,
+.a4-frame--idle::after {
+  opacity: 0.3;
 }
 
 .a4-frame--portrait {
@@ -601,6 +623,18 @@ body {
 }
 
 /* Automatic-detection checkboxes between the camera stage and the shutter. */
+/* Sits above the (black) camera stage, on the page background. */
+.camera-toolbar {
+  display: flex;
+  justify-content: center;
+  padding: 8px 16px;
+  border-block-end: 2px solid var(--color-border);
+}
+
+.camera-toolbar .detect-checkbox {
+  color: var(--color-fg);
+}
+
 .detect-settings {
   display: flex;
   justify-content: center;
