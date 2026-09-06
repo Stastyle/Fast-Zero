@@ -71,6 +71,12 @@ export type A4Mapping =
       ok: true
       /** Maps image px → page cm (origin top-left of page, y grows down). */
       homography: number[]
+      /**
+       * The reverse mapping, page cm → image px. Lets a point fixed on the
+       * PAGE (the aim point) be recovered in a later photo of the same sheet,
+       * whatever the framing and angle of that photo.
+       */
+      inverse: number[]
       pageWidthCm: number
       pageHeightCm: number
     }
@@ -94,15 +100,17 @@ export function a4MappingFromCorners(corners: Vec2[]): A4Mapping {
   const vertical = (distancePx(tl, bl) + distancePx(tr, br)) / 2
   const pageWidthCm = horizontal > vertical ? A4_LONG_CM : A4_SHORT_CM
   const pageHeightCm = horizontal > vertical ? A4_SHORT_CM : A4_LONG_CM
-  const homography = computeHomography(
-    [tl, tr, br, bl],
-    [
-      { x: 0, y: 0 },
-      { x: pageWidthCm, y: 0 },
-      { x: pageWidthCm, y: pageHeightCm },
-      { x: 0, y: pageHeightCm },
-    ],
-  )
-  if (!homography) return { ok: false, reason: 'degenerate' }
-  return { ok: true, homography, pageWidthCm, pageHeightCm }
+  const pageCorners = [
+    { x: 0, y: 0 },
+    { x: pageWidthCm, y: 0 },
+    { x: pageWidthCm, y: pageHeightCm },
+    { x: 0, y: pageHeightCm },
+  ]
+  const imageCorners = [tl, tr, br, bl]
+  const homography = computeHomography(imageCorners, pageCorners)
+  // Solved from the same correspondences rather than inverted numerically —
+  // same cost, and no error amplification from a near-singular matrix.
+  const inverse = computeHomography(pageCorners, imageCorners)
+  if (!homography || !inverse) return { ok: false, reason: 'degenerate' }
+  return { ok: true, homography, inverse, pageWidthCm, pageHeightCm }
 }

@@ -37,7 +37,7 @@ export function CornersScreen() {
       setError(he.corners.invalid)
       return
     }
-    setHomography(mapping.homography)
+    setHomography(mapping.homography, mapping.inverse)
     navigate('/aim')
   }
 

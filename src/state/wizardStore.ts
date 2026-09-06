@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { applyHomography } from '../core/homography'
 import type { CalibrationState, Hit, TargetMode, Vec2 } from '../core/types'
 
 type RoundTargetMode = 'camera' | 'schematic' | 'corners'
@@ -14,19 +15,39 @@ interface WizardState {
   hits: Hit[]
   /**
    * Aim point as a FRACTION of the captured page. Valid across rounds on the
-   * camera path because every capture is cropped to the same aligned A4 page.
+   * legacy frame-crop camera path, where every capture is cropped to the same
+   * aligned A4 page.
    */
   aimFrac: { x: number; y: number } | null
+  /**
+   * Aim point in PAGE CENTIMETRES (origin: page top-left, y down). Valid across
+   * rounds whenever the round has a homography, because it names a point on the
+   * physical sheet rather than a position in one particular photo — so framing,
+   * distance and camera angle may all change between rounds.
+   */
+  aimPageCm: { x: number; y: number } | null
   lastTargetMode: RoundTargetMode | null
 
   selectProfile: (id: string) => void
   setPhoto: (url: string, width: number, height: number, detectedCorners?: Vec2[] | null) => void
   /** Camera-frame capture: the crop bounds are the A4 page, so the scale is known. */
   setPhotoWithScale: (url: string, width: number, height: number, pxPerCm: number) => void
+  /**
+   * Auto-detected page capture: the photo comes with a perspective-correct
+   * px→cm mapping built from the detected page corners, so the sheet need not
+   * be aligned to the on-screen frame.
+   */
+  setPhotoWithPage: (
+    url: string,
+    width: number,
+    height: number,
+    homography: number[],
+    inverse: number[],
+  ) => void
   setSchematicMode: (pxPerCm: number, aimPointPx: Vec2) => void
   setCalibrationPoints: (a: Vec2, b: Vec2, realDistanceCm: number, pxPerCm: number) => void
-  /** A4 corner marking: perspective-correct px→cm mapping. */
-  setHomography: (h: number[]) => void
+  /** A4 corner marking: perspective-correct px→cm mapping (and its reverse). */
+  setHomography: (h: number[], inverse?: number[]) => void
   setAimPoint: (p: Vec2) => void
   addHit: (posPx: Vec2) => void
   /** Batch insert (automatic hit detection) — one store update for all hits. */
@@ -51,6 +72,7 @@ const emptyCalibration = (mode: TargetMode): CalibrationState => ({
   realDistanceCm: null,
   pxPerCm: null,
   homography: null,
+  inverseHomography: null,
   aimPointPx: null,
 })
 
@@ -79,17 +101,25 @@ function persistProfileId(id: string | null): void {
 
 interface PersistedRound {
   aimFrac: { x: number; y: number } | null
+  aimPageCm: { x: number; y: number } | null
   lastTargetMode: RoundTargetMode | null
 }
 
 function loadPersistedRound(): PersistedRound {
   try {
     const raw = sessionStorage.getItem(ROUND_KEY)
-    if (raw) return JSON.parse(raw) as PersistedRound
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<PersistedRound>
+      return {
+        aimFrac: parsed.aimFrac ?? null,
+        aimPageCm: parsed.aimPageCm ?? null,
+        lastTargetMode: parsed.lastTargetMode ?? null,
+      }
+    }
   } catch {
     /* fall through */
   }
-  return { aimFrac: null, lastTargetMode: null }
+  return { aimFrac: null, aimPageCm: null, lastTargetMode: null }
 }
 
 function persistRound(round: PersistedRound): void {
@@ -129,7 +159,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setPhotoWithScale: (url, width, height, pxPerCm) =>
     set((s) => {
       if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
-      persistRound({ aimFrac: s.aimFrac, lastTargetMode: 'camera' })
+      persistRound({ aimFrac: s.aimFrac, aimPageCm: s.aimPageCm, lastTargetMode: 'camera' })
       return {
         photoUrl: url,
         photoSize: { width, height },
@@ -140,10 +170,28 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       }
     }),
 
+  setPhotoWithPage: (url, width, height, homography, inverse) =>
+    set((s) => {
+      if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
+      persistRound({ aimFrac: null, aimPageCm: s.aimPageCm, lastTargetMode: 'camera' })
+      return {
+        photoUrl: url,
+        photoSize: { width, height },
+        detectedCorners: null,
+        calibration: { ...emptyCalibration('photo'), homography, inverseHomography: inverse },
+        hits: [],
+        // The crop follows the detected page, not a fixed frame, so a page
+        // FRACTION from an earlier round no longer names the same point;
+        // aimPageCm carries the aim across rounds instead.
+        aimFrac: null,
+        lastTargetMode: 'camera' as const,
+      }
+    }),
+
   setSchematicMode: (pxPerCm, aimPointPx) =>
     set((s) => {
       if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
-      persistRound({ aimFrac: null, lastTargetMode: 'schematic' })
+      persistRound({ aimFrac: null, aimPageCm: null, lastTargetMode: 'schematic' })
       return {
         photoUrl: null,
         photoSize: null,
@@ -151,6 +199,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         calibration: { ...emptyCalibration('schematic'), pxPerCm, aimPointPx },
         hits: [],
         aimFrac: null,
+        aimPageCm: null,
         lastTargetMode: 'schematic' as const,
       }
     }),
@@ -160,13 +209,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       calibration: { ...s.calibration, pointA: a, pointB: b, realDistanceCm, pxPerCm },
     })),
 
-  setHomography: (h) =>
+  setHomography: (h, inverse) =>
     set((s) => {
       // Corner marking means the photo was NOT frame-aligned — a page-fraction
       // aim point from a previous round would not be valid here.
-      persistRound({ aimFrac: null, lastTargetMode: 'corners' })
+      persistRound({ aimFrac: null, aimPageCm: s.aimPageCm, lastTargetMode: 'corners' })
       return {
-        calibration: { ...s.calibration, homography: h },
+        calibration: { ...s.calibration, homography: h, inverseHomography: inverse ?? null },
         aimFrac: null,
         lastTargetMode: 'corners' as const,
       }
@@ -181,8 +230,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const aimFrac = frameAligned
         ? { x: p.x / s.photoSize!.width, y: p.y / s.photoSize!.height }
         : s.aimFrac
-      if (frameAligned) persistRound({ aimFrac, lastTargetMode: s.lastTargetMode })
-      return { calibration: { ...s.calibration, aimPointPx: p }, aimFrac }
+      // With a homography the aim can be pinned to the SHEET, which survives a
+      // change of framing, distance or angle between rounds.
+      const aimPageCm = s.calibration.homography
+        ? applyHomography(s.calibration.homography, p)
+        : s.aimPageCm
+      persistRound({ aimFrac, aimPageCm, lastTargetMode: s.lastTargetMode })
+      return { calibration: { ...s.calibration, aimPointPx: p }, aimFrac, aimPageCm }
     }),
 
   addHit: (posPx) =>
@@ -234,7 +288,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set((s) => {
       if (s.photoUrl) URL.revokeObjectURL(s.photoUrl)
       persistProfileId(null)
-      persistRound({ aimFrac: null, lastTargetMode: null })
+      persistRound({ aimFrac: null, aimPageCm: null, lastTargetMode: null })
       return {
         profileId: null,
         photoUrl: null,
@@ -243,6 +297,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         calibration: emptyCalibration('photo'),
         hits: [],
         aimFrac: null,
+        aimPageCm: null,
         lastTargetMode: null,
       }
     }),
